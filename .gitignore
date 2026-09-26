@@ -1,0 +1,12 @@
+# Datos personales y secretos: nunca al repositorio
+secretos.json
+config.json
+datos/*.db
+datos/*.db-*
+datos/bandeja_salida_simulacion/
+datos/cv.*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
