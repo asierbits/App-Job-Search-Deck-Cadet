@@ -14,7 +14,14 @@ CREATE TABLE IF NOT EXISTS empresas (
     tipo TEXT NOT NULL DEFAULT 'empresa',      -- empresa | agencia
     sector TEXT DEFAULT '',
     ciudad TEXT DEFAULT '',
+    pais TEXT DEFAULT '',                      -- código ISO (es, de, fr…): decide el idioma del correo
     email TEXT DEFAULT '',
+    email_buscado TEXT DEFAULT '',             -- cuándo se buscó el email en su web ('' = nunca)
+    email_fuente TEXT DEFAULT '',              -- página donde se encontró el email
+    web_empleo TEXT DEFAULT '',                -- página de empleo / tripulación (para registrarse a mano)
+    cadetes INTEGER DEFAULT 0,                 -- 1 si su web menciona cadetes / alumnos
+    web_bloqueada INTEGER DEFAULT 0,           -- 1 si su web no deja leerla a programas
+    seleccionada INTEGER DEFAULT 0,            -- 1 si la has elegido para enviarle el correo
     web TEXT DEFAULT '',
     telefono TEXT DEFAULT '',
     fuente TEXT DEFAULT '',
@@ -94,6 +101,7 @@ def conectar(modo=None):
     try:
         con.execute("PRAGMA journal_mode=WAL")
         con.executescript(ESQUEMA)
+        _migrar(con)
         yield con
         con.commit()
     except Exception:
@@ -103,8 +111,54 @@ def conectar(modo=None):
         con.close()
 
 
+COLUMNAS_NUEVAS = {"pais": "TEXT DEFAULT ''", "email_buscado": "TEXT DEFAULT ''", "email_fuente": "TEXT DEFAULT ''",
+                   "web_empleo": "TEXT DEFAULT ''", "cadetes": "INTEGER DEFAULT 0", "web_bloqueada": "INTEGER DEFAULT 0",
+                   "seleccionada": "INTEGER DEFAULT 0"}
+
+
+def _migrar(con):
+    """Añade a las bases de datos antiguas las columnas que se han ido incorporando."""
+    existentes = {r[1] for r in con.execute("PRAGMA table_info(empresas)")}
+    for nombre, tipo in COLUMNAS_NUEVAS.items():
+        if nombre not in existentes:
+            con.execute(f"ALTER TABLE empresas ADD COLUMN {nombre} {tipo}")
+            if nombre == "pais":  # todo lo anterior a esta versión era de España
+                con.execute("UPDATE empresas SET pais = 'es'")
+
+
 def filas(cur):
     return [dict(r) for r in cur.fetchall()]
+
+
+# ---------------------------------------------------------------- memoria de rastreos (compartida)
+# Lo que se averigua de la web de una empresa (su email, su página de empleo…) no depende del modo:
+# se guarda aparte para que lo rastreado en «prueba» sirva igual en «real» sin volver a rastrear.
+
+ESQUEMA_RASTREOS = """
+CREATE TABLE IF NOT EXISTS rastreos (
+    dominio TEXT PRIMARY KEY,
+    email TEXT, email_fuente TEXT, web_empleo TEXT, nombre TEXT,
+    cadetes INTEGER DEFAULT 0, bloqueada INTEGER DEFAULT 0,
+    fecha TEXT NOT NULL
+);
+"""
+
+
+@contextmanager
+def conectar_rastreos():
+    os.makedirs(config.ruta("datos"), exist_ok=True)
+    con = sqlite3.connect(os.path.join(config.ruta("datos"), "rastreos.db"), timeout=15)
+    con.row_factory = sqlite3.Row
+    try:
+        con.execute("PRAGMA journal_mode=WAL")
+        con.executescript(ESQUEMA_RASTREOS)
+        yield con
+        con.commit()
+    except Exception:
+        con.rollback()
+        raise
+    finally:
+        con.close()
 
 
 def evento(mensaje, nivel="info", modo=None):

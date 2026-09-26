@@ -17,7 +17,7 @@
   </div>
   <nav class="pestanas" role="tablist">
     <button class="pestana activa" data-vista="panel">Panel</button>
-    <button class="pestana" data-vista="empresas">Empresas</button>
+    <button class="pestana" data-vista="empresas">Navieras <span id="contador-seleccionadas" class="contador" hidden></span></button>
     <button class="pestana" data-vista="respuestas">Respuestas <span id="contador-no-leidas" class="contador" hidden></span></button>
     <button class="pestana" data-vista="config">Configuración</button>
   </nav>
@@ -39,8 +39,9 @@
         <p class="resumen" id="resumen"></p>
       </div>
       <div class="hero-accion">
-        <button id="btn-iniciar" class="btn primario grande"><svg viewBox="0 0 24 24" class="ico"><path d="M7 4.5v15l12-7.5z"/></svg> Iniciar búsqueda</button>
+        <button id="btn-iniciar" class="btn primario grande"><svg viewBox="0 0 24 24" class="ico"><path d="M7 4.5v15l12-7.5z"/></svg> 1 · Buscar navieras</button>
         <button id="btn-detener" class="btn grande" hidden>■ Detener</button>
+        <button id="btn-ir-revisar" class="btn grande" data-ir="empresas" hidden>2 · Revisar y enviar →</button>
         <p class="pequeno secundario" id="hero-detalle"></p>
       </div>
       <div class="hero-progreso" id="hero-progreso" hidden>
@@ -85,34 +86,71 @@
   <!-- ============ EMPRESAS ============ -->
   <section id="vista-empresas" class="vista" hidden>
     <div class="cabecera-vista">
-      <h2 class="titulo-vista">Empresas y agencias</h2>
+      <h2 class="titulo-vista">Navieras</h2>
       <button class="btn" id="btn-nueva-empresa">+ Añadir a mano</button>
     </div>
+
+    <!-- Progreso en directo de la búsqueda y el rastreo -->
+    <div class="tarjeta tarjeta-rastreo" id="tarjeta-rastreo" hidden>
+      <div class="fila-entre">
+        <div><h3 id="rastreo-titulo" style="margin:0"></h3><p class="secundario pequeno" id="rastreo-sub" style="margin:2px 0 0"></p></div>
+        <div class="fila" style="margin:0">
+          <button class="btn" id="btn-seguir-rastreo" hidden></button>
+          <button class="btn" id="btn-detener-2" hidden>■ Detener</button>
+        </div>
+      </div>
+      <div class="pista" id="rastreo-pista"><div class="pista-relleno" id="rastreo-barra"></div></div>
+      <div class="contadores" id="rastreo-contadores"></div>
+      <div id="rastreo-ahora" class="rastreo-ahora"></div>
+      <div id="rastreo-ultimos" class="rastreo-ultimos"></div>
+    </div>
+
     <div class="tarjeta">
       <div class="filtros">
         <input id="filtro-texto" type="search" placeholder="Buscar por nombre, sector o email…">
         <select id="filtro-estado">
           <option value="">Todos los estados</option>
+          <option value="elegibles">Con email, aún sin escribir</option>
+          <option value="seleccionadas">☑ Seleccionadas para enviar</option>
+          <option value="pendiente_rastreo">Pendientes de rastrear</option>
           <option value="nueva">Pendiente de enviar</option>
           <option value="sin_email">Sin email</option>
           <option value="enviado">Enviado</option>
           <option value="respondida">Respondida</option>
           <option value="descartada">Descartada</option>
           <option value="error">Error</option>
+          <option disabled>──────────</option>
+          <option value="cadetes">⚓ Su web habla de cadetes</option>
+          <option value="portal">Sin email, con portal de empleo (registrarse a mano)</option>
+          <option value="bloqueada">Web que bloquea programas (mirar a mano)</option>
         </select>
         <select id="filtro-tipo">
           <option value="">Empresas y agencias</option>
           <option value="empresa">Solo empresas</option>
           <option value="agencia">Solo agencias</option>
         </select>
+        <select id="filtro-pais"><option value="">Todos los países</option></select>
       </div>
       <div class="tabla-envoltorio">
         <table class="tabla">
-          <thead><tr><th>Nombre</th><th>Tipo</th><th>Sector</th><th>Email</th><th>Estado</th><th></th></tr></thead>
+          <thead><tr><th class="col-check"><input type="checkbox" id="check-todas" title="Seleccionar todas las visibles que tienen email"></th><th>Nombre</th><th>País</th><th>Tipo</th><th>Sector</th><th>Email</th><th>Estado</th><th></th></tr></thead>
           <tbody id="tabla-empresas"></tbody>
         </table>
       </div>
-      <p id="empresas-vacio" class="vacio" hidden>Todavía no hay empresas. Pulsa <b>Iniciar búsqueda</b> en el panel.</p>
+      <p id="empresas-vacio" class="vacio" hidden>Todavía no hay navieras. Pulsa <b>1 · Buscar navieras</b> en el panel.</p>
+    </div>
+
+    <!-- Barra de envío: siempre visible abajo -->
+    <div class="barra-envio" id="barra-envio">
+      <div>
+        <b id="sel-num">0 seleccionadas</b>
+        <div class="pequeno secundario" id="sel-ayuda">Marca las casillas de las navieras a las que quieres escribir.</div>
+      </div>
+      <div class="fila" style="margin:0">
+        <button class="btn" id="btn-sel-recomendadas" title="Las que tienen un buzón de tripulación / empleo o cuya web menciona cadetes">Seleccionar recomendadas</button>
+        <button class="btn" id="btn-sel-ninguna">Quitar selección</button>
+        <button class="btn primario" id="btn-enviar" disabled>Enviar</button>
+      </div>
     </div>
   </section>
 
@@ -168,17 +206,29 @@
       <div class="tarjeta editor">
         <div class="fila-entre">
           <div><h3>Tu mensaje</h3><p class="secundario pequeno" style="margin:0">Lo que recibirá cada empresa. Las <span class="var-ejemplo">variables</span> se rellenan solas con sus datos y los tuyos.</p></div>
-          <div class="segmentado" role="tablist" id="selector-plantilla">
-            <button type="button" class="activo" data-plantilla="empresa">Para empresas</button>
-            <button type="button" data-plantilla="agencia">Para agencias</button>
+          <div class="fila" style="margin:0">
+            <div class="segmentado" role="tablist" id="selector-idioma">
+              <button type="button" class="activo" data-idioma="es">Español</button>
+              <button type="button" data-idioma="en">English</button>
+            </div>
+            <div class="segmentado" role="tablist" id="selector-plantilla">
+              <button type="button" class="activo" data-plantilla="empresa">Para empresas</button>
+              <button type="button" data-plantilla="agencia">Para agencias</button>
+            </div>
           </div>
         </div>
+        <p class="ayuda" id="ayuda-idioma"></p>
         <div class="editor-cols">
           <div class="editor-campos">
-            <label>Asunto<input name="envio.asunto" data-editable></label>
+            <label>Asunto
+              <input name="envio.asunto" data-editable data-idioma="es" aria-label="Asunto en español">
+              <input name="envio.asunto_en" data-editable data-idioma="en" aria-label="Asunto en inglés" hidden>
+            </label>
             <div class="etiqueta-cuerpo"><span id="etq-mensaje">Mensaje para empresas</span>
-              <textarea name="envio.plantilla" rows="16" data-editable data-tipo="empresa" aria-labelledby="etq-mensaje"></textarea>
-              <textarea name="envio.plantilla_agencia" rows="16" data-editable data-tipo="agencia" aria-labelledby="etq-mensaje" hidden></textarea>
+              <textarea name="envio.plantilla" rows="16" data-editable data-tipo="empresa" data-idioma="es" aria-labelledby="etq-mensaje"></textarea>
+              <textarea name="envio.plantilla_agencia" rows="16" data-editable data-tipo="agencia" data-idioma="es" aria-labelledby="etq-mensaje" hidden></textarea>
+              <textarea name="envio.plantilla_en" rows="16" data-editable data-tipo="empresa" data-idioma="en" aria-labelledby="etq-mensaje" hidden></textarea>
+              <textarea name="envio.plantilla_agencia_en" rows="16" data-editable data-tipo="agencia" data-idioma="en" aria-labelledby="etq-mensaje" hidden></textarea>
             </div>
             <div class="insertar">
               <span class="pequeno secundario">Insertar:</span>
@@ -221,6 +271,7 @@
           <label>Email de contacto<input name="perfil.email" type="email"></label>
           <label>Teléfono<input name="perfil.telefono"></label>
           <label>Titulación<input name="perfil.titulacion" placeholder="Grado en Ingeniería Informática"></label>
+          <label>Titulación en inglés (para los correos en inglés)<input name="perfil.titulacion_en" placeholder="BSc in Computer Engineering"></label>
           <label>Universidad<input name="perfil.universidad"></label>
           <label>LinkedIn<input name="perfil.linkedin"></label>
           <label>Ruta del CV (PDF)<input name="perfil.cv"><span class="ayuda">Relativa a la carpeta del programa, p. ej. <code>datos/cv.pdf</code></span></label>
@@ -230,19 +281,34 @@
           <h3>Búsqueda</h3>
           <label>Fuente
             <select name="busqueda.fuente">
-              <option value="ejemplo">Datos de ejemplo (ficticios)</option>
-              <option value="osm">OpenStreetMap (empresas reales)</option>
+              <option value="maritimo">Navieras europeas (Wikidata + asociaciones de navieros)</option>
+              <option value="osm">OpenStreetMap alrededor de ciudades</option>
+              <option value="ejemplo">Datos de ejemplo (navieras ficticias)</option>
             </select>
           </label>
-          <label>Ciudad<input name="busqueda.ciudad"></label>
-          <label>Radio (km)<input name="busqueda.radio_km" type="number" min="1" max="50"></label>
+
+          <div data-fuente="maritimo">
+            <label class="casilla" style="margin-bottom:10px"><input type="checkbox" name="busqueda.usar_wikidata"> Navieras, ferris y cruceros de Wikidata (~300 en Europa)</label>
+            <label>Directorios de navieras (una dirección por línea: página web o PDF)
+              <textarea name="busqueda.directorios" rows="6" class="mono"></textarea>
+              <span class="ayuda">Listas de socios de asociaciones de navieros. De cada una se sacan las webs y emails de las navieras (y se siguen sus páginas). Opcional: añade <code>| es</code> al final para indicar el país de las navieras de esa lista. Puedes añadir las que encuentres.</span></label>
+          </div>
+
+          <div data-fuente="osm">
+            <label>Ciudades (una por línea, de cualquier país)
+              <textarea name="busqueda.ciudades" rows="4" placeholder="Bilbao&#10;Hamburgo&#10;Róterdam&#10;El Pireo"></textarea></label>
+            <label>Radio alrededor de cada ciudad (km)<input name="busqueda.radio_km" type="number" min="1" max="50"></label>
+            <label>Máximo de resultados por ciudad<input name="busqueda.max_resultados" type="number" min="1"></label>
+          </div>
+
           <fieldset><legend>Buscar</legend>
-            <label class="casilla"><input type="checkbox" name="busqueda.tipos" value="empresa"> Empresas</label>
-            <label class="casilla"><input type="checkbox" name="busqueda.tipos" value="agencia"> Agencias de empleo / ETT</label>
+            <label class="casilla"><input type="checkbox" name="busqueda.tipos" value="empresa"> Empresas / navieras</label>
+            <label class="casilla"><input type="checkbox" name="busqueda.tipos" value="agencia"> Agencias</label>
           </fieldset>
-          <label>Palabras clave (opcional, separadas por comas)<input name="busqueda.palabras_clave" placeholder="software, marketing, ingeniería"></label>
-          <label>Máximo de resultados<input name="busqueda.max_resultados" type="number" min="1"></label>
-          <p class="ayuda">OpenStreetMap es gratuito, pero muchas empresas no publican su email ahí: saldrán como «Sin email» y podrás añadirlo a mano en la pestaña Empresas.</p>
+          <label>Palabras clave (opcional, separadas por comas)<input name="busqueda.palabras_clave" placeholder="ferries, tankers, cruceros"></label>
+          <label class="casilla" style="margin-bottom:8px"><input type="checkbox" name="busqueda.buscar_email_web"> Rastrear a fondo la web de cada empresa</label>
+          <label>Máximo de webs a rastrear en cada «Iniciar»<input name="busqueda.max_webs_por_ejecucion" type="number" min="0"><span class="ayuda">Visita hasta 8 páginas de cada web (tripulación, cadetes, empleo, contacto, aviso legal…) para encontrar el mejor email (crewing@, cadets@…), su portal de empleo y si hablan de cadetes. Tarda unos segundos por web; las que queden se rastrean en el siguiente «Iniciar».</span></label>
+          <p class="ayuda">A las empresas de España se les escribe en español; al resto, en inglés. Las webs que prohíben la lectura automática se respetan y se marcan para que las mires tú.</p>
         </div>
       </div>
 

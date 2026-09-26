@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 from core import config, correo, db
-from core.motor import Motor, enviados_hoy
+from core.motor import Motor, buscar_email_empresa, enviados_hoy
 
 PUERTO = int(os.environ.get("PUERTO", 8765))
 ESTATICOS = os.path.join(config.RAIZ, "static")
@@ -38,6 +38,12 @@ def api_estado(_):
             "no_leidas": uno("SELECT count(*) FROM respuestas WHERE leida=0"),
             "pendientes_envio": uno("SELECT count(*) FROM empresas WHERE estado='nueva' AND email <> ''"),
             "errores": uno("SELECT count(*) FROM empresas WHERE estado='error'"),
+            "seleccionadas": uno("SELECT count(*) FROM empresas WHERE seleccionada=1 AND estado='nueva' AND email<>''"),
+            "rastreadas": uno("SELECT count(*) FROM empresas WHERE email_buscado<>''"),
+            "cadetes": uno("SELECT count(*) FROM empresas WHERE cadetes=1"),
+            "portales": uno("SELECT count(*) FROM empresas WHERE email='' AND web_empleo<>''"),
+            "por_rastrear": uno("SELECT count(*) FROM empresas WHERE estado IN ('sin_email','nueva') "
+                                "AND web<>'' AND email_buscado=''"),
             "categorias": categorias,
         }
         # Actividad de los últimos 14 días (envíos y respuestas por día)
@@ -52,7 +58,7 @@ def api_estado(_):
     return {
         "modo": modo,
         "nombre": cfg["perfil"]["nombre"],
-        "ciudad": cfg["busqueda"]["ciudad"],
+        "ciudades": cfg["busqueda"]["ciudades"],
         "fuente": cfg["busqueda"]["fuente"],
         "max_por_ejecucion": cfg["envio"]["max_por_ejecucion"],
         "cuenta": config.cuenta(),
@@ -75,7 +81,9 @@ def api_empresas(_):
                    (SELECT count(*) FROM respuestas r WHERE r.empresa_id = e.id) AS n_respuestas,
                    (SELECT categoria FROM respuestas r WHERE r.empresa_id = e.id
                      ORDER BY recibido_en DESC LIMIT 1) AS ultima_categoria
-            FROM empresas e ORDER BY e.id DESC"""))
+            FROM empresas e
+            ORDER BY (e.estado IN ('respondida', 'enviado')) DESC, e.cadetes DESC, (e.pais = 'es') DESC,
+                     (e.email <> '') DESC, e.id DESC"""))
 
 
 def api_empresa(_, id_):
@@ -98,11 +106,26 @@ def api_crear_empresa(d):
     email = (d.get("email") or "").strip()
     with db.conectar() as con:
         cur = con.execute(
-            """INSERT INTO empresas(nombre, tipo, sector, ciudad, email, web, fuente, estado, creado)
-               VALUES (?,?,?,?,?,?,?,?,?)""",
-            (nombre, d.get("tipo") or "empresa", d.get("sector", ""), d.get("ciudad", ""), email,
-             d.get("web", ""), "manual", "nueva" if email else "sin_email", db.ahora()))
+            """INSERT INTO empresas(nombre, tipo, sector, ciudad, pais, email, web, fuente, estado, creado)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (nombre, d.get("tipo") or "empresa", d.get("sector", ""), d.get("ciudad", ""),
+             (d.get("pais") or "es").lower()[:2], email, d.get("web", ""), "manual",
+             "nueva" if email else "sin_email", db.ahora()))
         return {"id": cur.lastrowid}
+
+
+def api_buscar_email(_, id_):
+    """Busca el email de una empresa en su web (a petición, desde la tabla)."""
+    with db.conectar() as con:
+        e = con.execute("SELECT * FROM empresas WHERE id=?", (id_,)).fetchone()
+    if not e:
+        raise LookupError("Empresa no encontrada")
+    if not e["web"]:
+        raise ValueError("Esta empresa no tiene web")
+    email = buscar_email_empresa(dict(e))
+    if not email:
+        db.evento(f"No se encontró ningún email en la web de {e['nombre']}.", "aviso")
+    return {"email": email}
 
 
 def api_editar_empresa(d, id_):
@@ -116,8 +139,9 @@ def api_editar_empresa(d, id_):
             raise ValueError("Estado no válido")
         if estado in ("sin_email", "nueva"):
             estado = "nueva" if email else "sin_email"
-        con.execute("UPDATE empresas SET email=?, estado=?, notas=? WHERE id=?",
-                    (email, estado, d.get("notas", e["notas"]), id_))
+        con.execute("UPDATE empresas SET email=?, estado=?, notas=?, "
+                    "seleccionada = CASE WHEN ? = 'nueva' AND ? <> '' THEN seleccionada ELSE 0 END WHERE id=?",
+                    (email, estado, d.get("notas", e["notas"]), estado, email, id_))
     return {"ok": True}
 
 
@@ -188,9 +212,52 @@ def api_desconectar_cuenta(_):
 
 
 def api_iniciar(_):
-    if not motor.iniciar():
+    """Paso 1: buscar navieras y rastrear sus webs (no envía nada)."""
+    if not motor.buscar():
         raise ValueError("Ya hay un proceso en marcha")
     return {"ok": True}
+
+
+def api_rastrear_pendientes(_):
+    if not motor.rastrear_pendientes():
+        raise ValueError("Ya hay un proceso en marcha")
+    return {"ok": True}
+
+
+def api_enviar(_):
+    """Paso 2: enviar el correo a las navieras seleccionadas."""
+    if not motor.enviar():
+        raise ValueError("Ya hay un proceso en marcha")
+    return {"ok": True}
+
+
+def api_seleccion(d):
+    """Marca o desmarca navieras para enviarles el correo. Solo se pueden marcar las que tienen email
+    y a las que aún no se ha escrito."""
+    ids = [int(i) for i in d.get("ids", [])][:5000]
+    valor = 1 if d.get("seleccionada", True) else 0
+    if not ids:
+        return {"cambiadas": 0}
+    marcas = ",".join("?" * len(ids))
+    condicion = "AND estado = 'nueva' AND email <> ''" if valor else ""
+    with db.conectar() as con:
+        n = con.execute(f"UPDATE empresas SET seleccionada = ? WHERE id IN ({marcas}) {condicion}",
+                        [valor, *ids]).rowcount
+    return {"cambiadas": n}
+
+
+def api_correo_empresa(_, id_):
+    """El correo exacto que recibiría esta empresa (asunto, texto, idioma y a quién llegaría)."""
+    cfg = config.cargar()
+    with db.conectar() as con:
+        e = con.execute("SELECT * FROM empresas WHERE id=?", (id_,)).fetchone()
+    if not e:
+        raise LookupError("Empresa no encontrada")
+    e = dict(e)
+    asunto, cuerpo = correo.componer(cfg, e)
+    destinatario = cfg["perfil"]["email"] if cfg["modo"] == "prueba" else e["email"]
+    return {"asunto": asunto, "cuerpo": cuerpo, "idioma": correo.idioma(e), "destinatario": destinatario,
+            "modo": cfg["modo"], "adjunto": os.path.basename(cfg["perfil"]["cv"]) if cfg["envio"]["adjuntar_cv"] else ""}
 
 
 def api_detener(_):
@@ -218,6 +285,7 @@ RUTAS = [
     ("GET", r"/api/empresas", api_empresas),
     ("GET", r"/api/empresas/(\d+)", api_empresa),
     ("POST", r"/api/empresas", api_crear_empresa),
+    ("POST", r"/api/empresas/(\d+)/buscar-email", api_buscar_email),
     ("POST", r"/api/empresas/(\d+)", api_editar_empresa),
     ("GET", r"/api/respuestas", api_respuestas),
     ("POST", r"/api/respuestas/(\d+)/leida", api_marcar_leida),
@@ -229,6 +297,10 @@ RUTAS = [
     ("POST", r"/api/cuenta", api_conectar_cuenta),
     ("POST", r"/api/cuenta/desconectar", api_desconectar_cuenta),
     ("POST", r"/api/iniciar", api_iniciar),
+    ("POST", r"/api/rastrear-pendientes", api_rastrear_pendientes),
+    ("POST", r"/api/enviar", api_enviar),
+    ("POST", r"/api/seleccion", api_seleccion),
+    ("GET", r"/api/empresas/(\d+)/correo", api_correo_empresa),
     ("POST", r"/api/detener", api_detener),
     ("POST", r"/api/comprobar", api_comprobar),
     ("POST", r"/api/borrar-datos", api_borrar_datos),

@@ -20,20 +20,29 @@ def _rellenar(texto, valores):
     return re.sub(r"\{(\w+)\}", lambda m: str(valores.get(m.group(1), m.group(0))), texto)
 
 
+def idioma(empresa):
+    """Español para empresas de España; inglés para el resto (también si no se sabe el país)."""
+    return "es" if empresa.get("pais") == "es" else "en"
+
+
 def componer(cfg, empresa):
     envio = cfg["envio"]
+    en = idioma(empresa) == "en"
     valores = dict(cfg["perfil"])
+    if en and valores.get("titulacion_en", "").strip():
+        valores["titulacion"] = valores["titulacion_en"]
     valores.update({
         "empresa": empresa["nombre"],
-        "ciudad": empresa.get("ciudad") or cfg["busqueda"]["ciudad"],
+        "ciudad": empresa.get("ciudad") or cfg["busqueda"]["ciudades"][0],
         "sector": empresa.get("sector", ""),
     })
-    plantilla = envio["plantilla"]
-    if empresa.get("tipo") == "agencia" and envio.get("plantilla_agencia", "").strip():
-        plantilla = envio["plantilla_agencia"]
+    sufijo = "_en" if en else ""
+    plantilla = envio["plantilla" + sufijo]
+    if empresa.get("tipo") == "agencia" and envio.get("plantilla_agencia" + sufijo, "").strip():
+        plantilla = envio["plantilla_agencia" + sufijo]
     cuerpo = _rellenar(plantilla, valores)
     cuerpo = re.sub(r"\n{3,}", "\n\n", cuerpo).rstrip() + "\n"   # sin huecos si falta teléfono/LinkedIn
-    return _rellenar(envio["asunto"], valores), cuerpo
+    return _rellenar(envio["asunto" + sufijo], valores), cuerpo
 
 
 # ---------------------------------------------------------------- comprobaciones
@@ -170,17 +179,34 @@ def probar_conexion(cfg, usuario, contrasena):
 
 # ---------------------------------------------------------------- clasificación
 
+# Palabras clave en español, inglés, alemán y francés. El orden importa: gana la primera regla que encaje.
 REGLAS = [
-    ("automatica", ["respuesta automática", "respuesta automatica", "fuera de la oficina", "out of office",
-                    "auto-reply", "autoreply", "no responda a este", "mensaje automático", "de vacaciones"]),
+    ("automatica", ["respuesta automática", "respuesta automatica", "fuera de la oficina", "no responda a este",
+                    "mensaje automático", "de vacaciones",
+                    "automatic reply", "auto-reply", "autoreply", "out of office", "do not reply",
+                    "automatische antwort", "abwesenheit", "réponse automatique", "absent du bureau"]),
     ("rechazo", ["lamentablemente", "no disponemos", "no tenemos vacantes", "no hay vacantes",
                  "en este momento no", "no podemos ofrecer", "no estamos buscando", "otro candidato",
-                 "no encaja", "no seguiremos", "desestimad"]),
+                 "no encaja", "no seguiremos", "desestimad",
+                 "no disponemos de plazas", "no tenemos plazas", "no admitimos alumnos", "no embarcamos alumnos",
+                 "no cadet", "no vacancies for cadets", "cadet positions are filled", "no berths",
+                 "unfortunately", "regret to inform", "no open positions", "no internship positions",
+                 "not able to offer", "not hiring", "other candidates", "not moving forward",
+                 "leider", "absage", "malheureusement"]),
     ("entrevista", ["entrevista", "reunión", "reunion", "videollamada", "llamada", "conocerte",
-                    "conocerle", "disponibilidad para", "te citamos", "¿qué día", "que dia te viene"]),
+                    "conocerle", "disponibilidad para", "te citamos", "¿qué día", "que dia te viene",
+                    "embarcar el", "podrías embarcar", "podrias embarcar", "fecha de embarque",
+                    "join the vessel", "sign on", "signing on", "embarkation date",
+                    "interview", "video call", "phone call", "a quick call", "a call", "meet you",
+                    "your availability",
+                    "vorstellungsgespräch", "kennenlernen", "entretien", "rencontrer"]),
     ("info", ["más información", "mas informacion", "convenio", "portal", "formulario", "inscríbete",
               "inscribete", "referencia", "expediente", "nos envíes", "nos envies", "podrías indicarnos",
-              "podrias indicarnos", "adjunta", "completar"]),
+              "podrias indicarnos", "adjunta", "completar",
+              "libreta marítima", "libreta maritima", "certificado médico", "certificados stcw",
+              "crew portal", "crewing portal", "cadet programme", "cadet program", "stcw", "seaman's book",
+              "application form", "more information", "please complete", "please apply", "could you send",
+              "bewerbungsformular", "formular", "formulaire"]),
 ]
 
 

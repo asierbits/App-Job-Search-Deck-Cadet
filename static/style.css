@@ -124,7 +124,7 @@ hr { border: 0; border-top: 1px solid var(--linea); margin: 16px 0; }
 .btn.peligro { color: var(--critico); border-color: var(--critico); }
 .btn.enlace { border: 0; background: none; color: var(--acento); padding: 4px 6px; }
 .btn.enlace:hover { text-decoration: underline; }
-.btn.mini { padding: 3px 10px; font-size: 12.5px; border-radius: 8px; }
+.btn.mini { padding: 3px 10px; font-size: 12.5px; border-radius: 8px; white-space: nowrap; }
 
 input, select, textarea {
   font: inherit; color: var(--tinta); background: var(--plano);
@@ -316,6 +316,41 @@ figcaption p { margin: 2px 0 0; }
 .tabla .nombre { font-weight: 600; cursor: pointer; }
 .tabla .nombre:hover { color: var(--acento); }
 .tabla .email-input { width: 210px; padding: 4px 8px; font-size: 12.5px; }
+.celda-email { display: flex; gap: 6px; align-items: center; }
+.chip-cadetes { font-size: 11.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+  background: color-mix(in srgb, var(--acento) 14%, transparent); color: var(--tinta); }
+.chip-bloqueada { font-size: 11.5px; padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+  background: color-mix(in srgb, var(--aviso) 22%, transparent); color: var(--tinta); }
+/* ---------- progreso del rastreo y envío ---------- */
+.tarjeta-rastreo { border-color: color-mix(in srgb, var(--acento) 40%, var(--borde)); }
+.tarjeta-rastreo .pista { margin: 12px 0 10px; }
+.contadores { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--tinta-2); }
+.contadores b { color: var(--tinta); font-size: 15px; font-family: var(--fuente-titulo); }
+.rastreo-ahora { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; align-items: center; }
+.rastreo-ahora:empty, .rastreo-ultimos:empty { display: none; }
+.rastreo-ahora .chip-vivo { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 3px 10px;
+  border-radius: 999px; background: var(--superficie-2); }
+.chip-vivo::before, .estado-rastreando::before { content: ""; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--acento); animation: latido 1s ease-in-out infinite; }
+.rastreo-ultimos { margin-top: 12px; border-top: 1px solid var(--linea); padding-top: 8px; font-size: 13px; }
+.rastreo-ultimos .fila-res { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr); gap: 10px; padding: 3px 0; }
+.rastreo-ultimos .fila-res span:first-child { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rastreo-ultimos .fila-res span:last-child { color: var(--tinta-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.estado-pendiente { color: var(--tinta-3); }
+.estado-pendiente::before { background: transparent; border: 1.5px solid var(--tinta-3); box-sizing: border-box; }
+.col-check { width: 28px; }
+.tabla input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--acento); cursor: pointer; }
+.tabla tr.seleccionada td { background: color-mix(in srgb, var(--acento) 8%, transparent); }
+.barra-envio {
+  position: sticky; bottom: 12px; z-index: 4; display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-radius: 14px; margin-top: 8px;
+  background: var(--superficie); border: 1px solid var(--borde); box-shadow: 0 8px 30px rgba(0,0,0,.18);
+}
+.ficha { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 13.5px; margin: 14px 0; }
+.ficha dt { color: var(--tinta-2); }
+.ficha dd { margin: 0; overflow-wrap: anywhere; }
+.correo-mock.pequeno-mock { padding: 14px 16px; margin-top: 8px; }
+textarea.mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; white-space: pre; overflow-x: auto; }
 .tabla td.acciones-fila { text-align: right; white-space: nowrap; }
 .tipo-chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--superficie-2); color: var(--tinta-2); white-space: nowrap; }
 

@@ -9,35 +9,63 @@ TIPOS = [("entrevista", 0.25), ("info", 0.30), ("rechazo", 0.35), ("automatica",
 TEXTOS = {
     "entrevista": [
         ("Re: {asunto}",
-         "Hola {nombre}:\n\nGracias por escribirnos. Nos ha gustado tu perfil y nos gustaría conocerte. "
-         "¿Tendrías disponibilidad para una videollamada de 30 minutos esta semana o la próxima?\n\n"
-         "Un saludo,\nEquipo de Personas\n{empresa}"),
+         "Hola {nombre}:\n\nGracias por escribirnos. Tenemos previsto embarcar alumnos de puente en los "
+         "próximos meses y nos gustaría conocerte. ¿Tendrías disponibilidad para una videollamada de 30 "
+         "minutos esta semana?\n\nUn saludo,\nDepartamento de Flota\n{empresa}"),
         ("Re: {asunto}",
-         "Buenos días {nombre},\n\nHemos revisado tu CV y queremos invitarte a una entrevista en nuestra "
-         "oficina. Indícanos qué día te viene mejor.\n\nSaludos,\n{empresa}"),
+         "Buenos días {nombre},\n\nHemos revisado tu CV. Podrías embarcar el mes que viene en uno de "
+         "nuestros buques; antes queremos hacerte una breve entrevista. Indícanos qué día te viene mejor."
+         "\n\nSaludos,\nPersonal de Flota\n{empresa}"),
     ],
     "info": [
         ("Re: {asunto}",
-         "Hola {nombre}:\n\nGracias por tu interés. Para prácticas trabajamos mediante convenio con la "
-         "universidad. ¿Podrías indicarnos si sigues matriculado o si tu universidad gestiona prácticas "
-         "para titulados recientes?\n\nUn saludo,\n{empresa}"),
+         "Hola {nombre}:\n\nGracias por tu interés. Para valorar tu candidatura necesitamos copia de tu "
+         "libreta marítima, el certificado médico en vigor y tus certificados STCW. ¿Nos los puedes "
+         "enviar?\n\nUn saludo,\n{empresa}"),
         ("Re: {asunto}",
-         "Hola:\n\nGracias por el CV. Te pedimos que completes también el formulario de nuestro portal de "
-         "empleo para que tu candidatura quede registrada.\n\nSaludos,\n{empresa}"),
+         "Hola:\n\nGracias por el CV. Los alumnos se gestionan a través de nuestro portal de tripulación: "
+         "te pedimos que completes allí el formulario para que tu candidatura quede registrada."
+         "\n\nSaludos,\n{empresa}"),
     ],
     "rechazo": [
         ("Re: {asunto}",
          "Hola {nombre}:\n\nMuchas gracias por contactar con {empresa}. Lamentablemente, en este momento no "
-         "disponemos de plazas de prácticas. Guardaremos tu CV para futuras oportunidades.\n\n"
-         "Te deseamos mucha suerte."),
+         "disponemos de plazas de alumno en nuestra flota. Guardaremos tu CV para futuras oportunidades."
+         "\n\nTe deseamos mucha suerte."),
         ("Re: {asunto}",
-         "Estimado/a {nombre}:\n\nAgradecemos tu interés, pero ahora mismo no estamos buscando perfiles en "
-         "prácticas.\n\nUn saludo,\n{empresa}"),
+         "Estimado/a {nombre}:\n\nAgradecemos tu interés, pero ahora mismo tenemos cubiertas todas las "
+         "plazas de alumnos de puente y en este momento no podemos ofrecerte embarque.\n\nUn saludo,\n{empresa}"),
     ],
     "automatica": [
         ("Respuesta automática: {asunto}",
          "Gracias por tu mensaje. Esta es una respuesta automática: hemos recibido tu correo y lo "
          "revisaremos lo antes posible.\n\n{empresa}"),
+    ],
+}
+
+
+TEXTOS_EN = {
+    "entrevista": [
+        ("Re: {asunto}",
+         "Hi {nombre},\n\nThanks for reaching out. We are planning to take on new deck cadets and would "
+         "like to schedule a short video call with you. What is your availability next week?"
+         "\n\nBest regards,\nCrewing Department\n{empresa}"),
+    ],
+    "info": [
+        ("Re: {asunto}",
+         "Hi {nombre},\n\nThanks for your message. Cadet applications at {empresa} are handled through our "
+         "crew portal, so please complete the application form there and upload your STCW certificates."
+         "\n\nKind regards,\nCrewing\n{empresa}"),
+    ],
+    "rechazo": [
+        ("Re: {asunto}",
+         "Dear {nombre},\n\nThank you for your interest in {empresa}. Unfortunately, all our cadet positions "
+         "are filled at the moment. We will keep your CV on file.\n\nBest of luck!"),
+    ],
+    "automatica": [
+        ("Automatic reply: {asunto}",
+         "Thank you for your message. This is an automatic reply to confirm that we have received your "
+         "email.\n\n{empresa}"),
     ],
 }
 
@@ -61,7 +89,7 @@ def entregar_pendientes(cfg):
 
     with db.conectar("simulacion") as con:
         pendientes = db.filas(con.execute(
-            """SELECT p.*, e.nombre AS empresa, e.email, c.asunto
+            """SELECT p.*, e.nombre AS empresa, e.email, e.pais, c.asunto
                FROM respuestas_programadas p
                JOIN empresas e ON e.id = p.empresa_id
                JOIN correos c ON c.id = p.correo_id
@@ -72,7 +100,8 @@ def entregar_pendientes(cfg):
             if con.execute("DELETE FROM respuestas_programadas WHERE id = ?", (p["id"],)).rowcount != 1:
                 continue
             entregadas.append(p)
-            plantilla_asunto, plantilla_cuerpo = random.choice(TEXTOS[p["tipo"]])
+            textos = TEXTOS if (p["pais"] or "es") == "es" else TEXTOS_EN
+            plantilla_asunto, plantilla_cuerpo = random.choice(textos[p["tipo"]])
             valores = {"nombre": cfg["perfil"]["nombre"], "empresa": p["empresa"], "asunto": p["asunto"]}
             asunto = plantilla_asunto.format(**valores)
             cuerpo = plantilla_cuerpo.format(**valores)
