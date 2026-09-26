@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Busca Prácticas</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="barra">
+  <div class="marca">
+    <h1>Busca Prácticas</h1>
+    <span id="insignia-modo" class="insignia">…</span>
+  </div>
+  <nav class="pestanas" role="tablist">
+    <button class="pestana activa" data-vista="panel">Panel</button>
+    <button class="pestana" data-vista="empresas">Empresas</button>
+    <button class="pestana" data-vista="respuestas">Respuestas <span id="contador-no-leidas" class="contador" hidden></span></button>
+    <button class="pestana" data-vista="config">Configuración</button>
+  </nav>
+  <div class="acciones">
+    <button id="btn-detener" class="btn" hidden>Detener</button>
+    <button id="btn-iniciar" class="btn primario">▶ Iniciar</button>
+  </div>
+</header>
+
+<main>
+  <div id="avisos"></div>
+
+  <!-- ============ PANEL ============ -->
+  <section id="vista-panel" class="vista">
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-etiqueta">Empresas encontradas</div><div class="kpi-valor" id="k-empresas">0</div><div class="kpi-sub" id="k-empresas-sub"></div></div>
+      <div class="kpi"><div class="kpi-etiqueta">Contactadas</div><div class="kpi-valor" id="k-enviados">0</div><div class="kpi-sub" id="k-enviados-sub"></div></div>
+      <div class="kpi"><div class="kpi-etiqueta">Respondieron</div><div class="kpi-valor" id="k-respondidas">0</div><div class="kpi-sub" id="k-respondidas-sub"></div></div>
+      <div class="kpi"><div class="kpi-etiqueta">Entrevistas</div><div class="kpi-valor" id="k-entrevistas">0</div><div class="kpi-sub" id="k-entrevistas-sub"></div></div>
+    </div>
+
+    <div class="tarjeta" id="tarjeta-progreso">
+      <div class="fila-entre">
+        <h2 id="fase">Parado</h2>
+        <span class="secundario" id="fase-num"></span>
+      </div>
+      <div class="pista"><div class="pista-relleno" id="barra-progreso"></div></div>
+      <p class="secundario pequeno" id="fase-ayuda">Pulsa <b>Iniciar</b> para buscar empresas y agencias y escribirles.</p>
+    </div>
+
+    <div class="rejilla-2">
+      <figure class="tarjeta">
+        <figcaption><h2>Embudo</h2><p class="secundario pequeno">Empresas en cada etapa</p></figcaption>
+        <div id="embudo" class="barras"></div>
+      </figure>
+      <figure class="tarjeta">
+        <figcaption><h2>Tipo de respuesta</h2><p class="secundario pequeno">Empresas según lo que han contestado (clasificado automáticamente)</p></figcaption>
+        <div id="categorias" class="barras"></div>
+      </figure>
+    </div>
+
+    <div class="rejilla-2">
+      <div class="tarjeta">
+        <div class="fila-entre"><h2>Últimas respuestas</h2><button class="btn enlace" data-ir="respuestas">Ver todas →</button></div>
+        <ul id="ultimas-respuestas" class="lista-simple"></ul>
+      </div>
+      <div class="tarjeta">
+        <h2>Actividad</h2>
+        <ol id="registro" class="registro"></ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ EMPRESAS ============ -->
+  <section id="vista-empresas" class="vista" hidden>
+    <div class="tarjeta">
+      <div class="filtros">
+        <input id="filtro-texto" type="search" placeholder="Buscar por nombre, sector o email…">
+        <select id="filtro-estado">
+          <option value="">Todos los estados</option>
+          <option value="nueva">Pendiente de enviar</option>
+          <option value="sin_email">Sin email</option>
+          <option value="enviado">Enviado</option>
+          <option value="respondida">Respondida</option>
+          <option value="descartada">Descartada</option>
+          <option value="error">Error</option>
+        </select>
+        <select id="filtro-tipo">
+          <option value="">Empresas y agencias</option>
+          <option value="empresa">Solo empresas</option>
+          <option value="agencia">Solo agencias</option>
+        </select>
+        <button class="btn" id="btn-nueva-empresa">+ Añadir a mano</button>
+      </div>
+      <div class="tabla-envoltorio">
+        <table class="tabla">
+          <thead><tr><th>Nombre</th><th>Tipo</th><th>Sector</th><th>Email</th><th>Estado</th><th></th></tr></thead>
+          <tbody id="tabla-empresas"></tbody>
+        </table>
+      </div>
+      <p id="empresas-vacio" class="vacio" hidden>Todavía no hay empresas. Pulsa <b>Iniciar</b> para buscar.</p>
+    </div>
+  </section>
+
+  <!-- ============ RESPUESTAS ============ -->
+  <section id="vista-respuestas" class="vista" hidden>
+    <div class="bandeja">
+      <div class="tarjeta bandeja-lista">
+        <div class="chips" id="filtro-categorias"></div>
+        <ul id="lista-respuestas"></ul>
+        <p id="respuestas-vacio" class="vacio" hidden>Aún no hay respuestas.</p>
+      </div>
+      <div class="tarjeta bandeja-detalle" id="detalle-respuesta">
+        <p class="vacio">Selecciona una respuesta para leerla.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CONFIGURACIÓN ============ -->
+  <section id="vista-config" class="vista" hidden>
+    <form id="form-config">
+      <div class="tarjeta">
+        <h2>Modo de funcionamiento</h2>
+        <div class="modos">
+          <label class="modo"><input type="radio" name="modo" value="simulacion">
+            <span><b>Simulación</b><br><span class="secundario pequeno">No sale ningún correo de tu PC. Las empresas son de ejemplo (o reales si eliges OpenStreetMap) y las respuestas se inventan para que pruebes el panel.</span></span></label>
+          <label class="modo"><input type="radio" name="modo" value="prueba">
+            <span><b>Prueba real</b><br><span class="secundario pequeno">Envía correos de verdad por tu Gmail, pero <b>todos llegan a tu propio correo</b>. Contesta tú como si fueras la empresa y verás la respuesta en el panel.</span></span></label>
+          <label class="modo peligro"><input type="radio" name="modo" value="real">
+            <span><b>Real</b><br><span class="secundario pequeno">Envía los correos a las empresas y agencias. Con límite diario y pausa entre envíos.</span></span></label>
+        </div>
+        <p class="secundario pequeno">Cada modo guarda sus datos por separado: lo que hagas en simulación no afecta a los envíos reales.</p>
+      </div>
+
+      <div class="rejilla-2">
+        <div class="tarjeta">
+          <h2>Tu perfil</h2>
+          <label>Nombre completo<input name="perfil.nombre"></label>
+          <label>Email de contacto<input name="perfil.email" type="email"></label>
+          <label>Teléfono<input name="perfil.telefono"></label>
+          <label>Titulación<input name="perfil.titulacion" placeholder="Grado en Ingeniería Informática"></label>
+          <label>Universidad<input name="perfil.universidad"></label>
+          <label>LinkedIn<input name="perfil.linkedin"></label>
+          <label>Ruta del CV (PDF)<input name="perfil.cv"><span class="ayuda">Relativa a la carpeta del programa, p. ej. <code>datos/cv.pdf</code></span></label>
+        </div>
+
+        <div class="tarjeta">
+          <h2>Búsqueda</h2>
+          <label>Fuente
+            <select name="busqueda.fuente">
+              <option value="ejemplo">Datos de ejemplo (ficticios)</option>
+              <option value="osm">OpenStreetMap (empresas reales)</option>
+            </select>
+          </label>
+          <label>Ciudad<input name="busqueda.ciudad"></label>
+          <label>Radio (km)<input name="busqueda.radio_km" type="number" min="1" max="50"></label>
+          <fieldset><legend>Buscar</legend>
+            <label class="casilla"><input type="checkbox" name="busqueda.tipos" value="empresa"> Empresas</label>
+            <label class="casilla"><input type="checkbox" name="busqueda.tipos" value="agencia"> Agencias de empleo / ETT</label>
+          </fieldset>
+          <label>Palabras clave (opcional, separadas por comas)<input name="busqueda.palabras_clave" placeholder="software, marketing, ingeniería"></label>
+          <label>Máximo de resultados<input name="busqueda.max_resultados" type="number" min="1"></label>
+          <p class="ayuda">OpenStreetMap es gratuito, pero muchas empresas no publican su email ahí: saldrán como «Sin email» y podrás añadirlo a mano desde la pestaña Empresas.</p>
+        </div>
+      </div>
+
+      <div class="tarjeta">
+        <h2>Correo que se envía</h2>
+        <p class="ayuda">Variables disponibles: <code>{empresa}</code> <code>{nombre}</code> <code>{titulacion}</code> <code>{universidad}</code> <code>{telefono}</code> <code>{linkedin}</code> <code>{ciudad}</code> <code>{sector}</code></p>
+        <label>Asunto<input name="envio.asunto"></label>
+        <div class="rejilla-2 sin-margen">
+          <label>Plantilla para empresas<textarea name="envio.plantilla" rows="14"></textarea></label>
+          <label>Plantilla para agencias<textarea name="envio.plantilla_agencia" rows="14"></textarea></label>
+        </div>
+        <div class="fila">
+          <button type="button" class="btn" data-previa="empresa">Vista previa (empresa)</button>
+          <button type="button" class="btn" data-previa="agencia">Vista previa (agencia)</button>
+          <label class="casilla"><input type="checkbox" name="envio.adjuntar_cv"> Adjuntar CV</label>
+        </div>
+        <pre id="vista-previa" class="previa" hidden></pre>
+      </div>
+
+      <div class="rejilla-2">
+        <div class="tarjeta">
+          <h2>Límites de envío</h2>
+          <label>Máximo por cada «Iniciar»<input name="envio.max_por_ejecucion" type="number" min="1"></label>
+          <label>Límite diario (prueba y real)<input name="envio.limite_diario" type="number" min="1"></label>
+          <label>Pausa entre correos (segundos)<input name="envio.pausa_segundos" type="number" min="5"><span class="ayuda">Enviar despacio evita que Gmail te marque como spam.</span></label>
+        </div>
+        <div class="tarjeta">
+          <h2>Servidor de correo</h2>
+          <label>Tu cuenta de Gmail<input name="servidor_correo.usuario" type="email" placeholder="tu.correo@gmail.com"></label>
+          <div class="dos-cols">
+            <label>SMTP<input name="servidor_correo.smtp_host"></label>
+            <label>Puerto<input name="servidor_correo.smtp_port" type="number"></label>
+            <label>IMAP<input name="servidor_correo.imap_host"></label>
+            <label>Puerto<input name="servidor_correo.imap_port" type="number"></label>
+          </div>
+          <label>Revisar respuestas cada (segundos)<input name="servidor_correo.intervalo_comprobacion_seg" type="number" min="30"></label>
+          <p class="ayuda">La contraseña <b>no</b> se escribe aquí: va en el fichero <code>secretos.json</code> (mira el README). Usa una «contraseña de aplicación» de Google, no tu contraseña normal.</p>
+        </div>
+      </div>
+
+      <div class="rejilla-2">
+        <div class="tarjeta">
+          <h2>Simulación</h2>
+          <label>Probabilidad de que respondan (0 a 1)<input name="simulacion.prob_respuesta" type="number" min="0" max="1" step="0.05"></label>
+          <div class="dos-cols">
+            <label>Retraso mínimo (s)<input name="simulacion.retraso_min_seg" type="number" min="0"></label>
+            <label>Retraso máximo (s)<input name="simulacion.retraso_max_seg" type="number" min="0"></label>
+          </div>
+        </div>
+        <div class="tarjeta">
+          <h2>Borrar datos</h2>
+          <p class="secundario pequeno">Borra empresas, correos y respuestas del modo actual (<b id="modo-borrar"></b>). Los demás modos no se tocan.</p>
+          <button type="button" class="btn peligro" id="btn-borrar">Borrar datos de este modo</button>
+        </div>
+      </div>
+
+      <div class="guardar">
+        <span id="estado-guardado" class="secundario pequeno"></span>
+        <button type="submit" class="btn primario">Guardar configuración</button>
+      </div>
+    </form>
+  </section>
+</main>
+
+<!-- Ventana de detalle de empresa -->
+<dialog id="dialogo">
+  <div class="dialogo-cabecera"><h2 id="dialogo-titulo"></h2><button class="btn enlace" id="dialogo-cerrar" aria-label="Cerrar">✕</button></div>
+  <div id="dialogo-cuerpo"></div>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
