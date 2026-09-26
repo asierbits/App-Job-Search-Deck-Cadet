@@ -360,6 +360,16 @@ a.chip-enlace:hover { text-decoration: underline; }
 .caja-aviso.critico { border-left-color: var(--critico); background: color-mix(in srgb, var(--critico) 8%, transparent); }
 .caja-aviso q { display: block; margin-top: 6px; color: var(--tinta-2); font-style: italic; quotes: "«" "»"; }
 tr.con-aviso td:first-child { box-shadow: inset 3px 0 0 var(--aviso); }
+.caja-adjuntos { border: 1.5px dashed var(--borde); border-radius: 12px; padding: 12px 14px; min-height: 110px; transition: background .15s; }
+.caja-adjuntos.soltar { background: color-mix(in srgb, var(--acento) 10%, transparent); border-color: var(--acento); }
+ul.adjuntos { list-style: none; margin: 10px 0 0; padding: 0; }
+ul.adjuntos li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--linea); font-size: 13.5px; }
+ul.adjuntos li:first-child { border-top: 0; }
+ul.adjuntos .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+ul.adjuntos .vacio-adj { color: var(--tinta-3); font-size: 13px; border: 0; }
+.lista-adjuntos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.lista-adjuntos:empty { display: none; }
+.adjunto.falta { border-color: var(--critico); color: var(--critico); }
 textarea.mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; white-space: pre; overflow-x: auto; }
 .tabla td.acciones-fila { text-align: right; white-space: nowrap; }
 .tipo-chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--superficie-2); color: var(--tinta-2); white-space: nowrap; }

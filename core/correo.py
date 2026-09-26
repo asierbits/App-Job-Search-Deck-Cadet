@@ -1,7 +1,6 @@
 """Composición, envío (SMTP) y lectura de respuestas (IMAP)."""
 import email
 import imaplib
-import mimetypes
 import os
 import re
 import smtplib
@@ -11,7 +10,7 @@ from email import policy
 from email.message import EmailMessage
 from email.utils import formatdate, make_msgid, parseaddr
 
-from . import config, db, simulador
+from . import adjuntos, config, db, simulador
 
 # ---------------------------------------------------------------- composición
 
@@ -56,12 +55,17 @@ def problemas_envio(cfg):
         p.append("Conecta tu cuenta de Gmail (botón «Conectar Gmail» arriba a la derecha).")
     if cfg["modo"] == "prueba" and not cfg["perfil"]["email"]:
         p.append("Falta tu email en el perfil (en modo prueba los correos te llegan a ti).")
-    if cfg["envio"]["adjuntar_cv"] and not os.path.exists(config.ruta(cfg["perfil"]["cv"])):
-        p.append(f"No encuentro el CV en '{cfg['perfil']['cv']}'. Ponlo ahí o desactiva 'Adjuntar CV'.")
+    if cfg["envio"]["adjuntar_cv"] and not adjuntos.para_correo(cfg, "es") and not adjuntos.para_correo(cfg, "en"):
+        p.append("No has subido ningún archivo para adjuntar (tu CV). Súbelo en Configuración → Archivos adjuntos, "
+                 "o desmarca «Adjuntar archivos».")
     return p
 
 
 # ---------------------------------------------------------------- envío
+
+class FaltanAdjuntos(ValueError):
+    """No hay archivos que adjuntar en el idioma de esa empresa: se deja pendiente, no es un error suyo."""
+
 
 def enviar(cfg, empresa):
     """Envía (o simula) el correo a una empresa. Devuelve el id del correo guardado."""
@@ -69,10 +73,16 @@ def enviar(cfg, empresa):
     asunto, cuerpo = componer(cfg, empresa)
     dominio = (cfg["servidor_correo"]["usuario"] or "buscatrabajo.local").split("@")[-1]
     message_id = make_msgid(domain=dominio)
+    lengua = idioma(empresa)
+    archivos = adjuntos.para_correo(cfg, lengua)
+    if cfg["envio"]["adjuntar_cv"] and not archivos:
+        # Mejor no enviar que enviar sin CV por despiste
+        raise FaltanAdjuntos(f"no hay archivos para adjuntar en {'español' if lengua == 'es' else 'inglés'}: "
+                         "súbelos en Configuración → Archivos adjuntos")
 
     if modo == "simulacion":
         destinatario = empresa["email"]
-        _guardar_eml(asunto, cuerpo, destinatario, message_id, cfg)
+        _guardar_eml(asunto, cuerpo, destinatario, message_id, cfg, archivos)
     else:
         if modo == "prueba":
             destinatario = cfg["perfil"]["email"]
@@ -82,7 +92,7 @@ def enviar(cfg, empresa):
         else:
             destinatario = empresa["email"]
             asunto_real, cuerpo_real = asunto, cuerpo
-        _enviar_smtp(cfg, destinatario, asunto_real, cuerpo_real, message_id)
+        _enviar_smtp(cfg, destinatario, asunto_real, cuerpo_real, message_id, archivos)
 
     with db.conectar() as con:
         cur = con.execute(
@@ -97,7 +107,7 @@ def enviar(cfg, empresa):
     return correo_id
 
 
-def _mensaje(cfg, destinatario, asunto, cuerpo, message_id):
+def _mensaje(cfg, destinatario, asunto, cuerpo, message_id, archivos=()):
     perfil, sc = cfg["perfil"], cfg["servidor_correo"]
     msg = EmailMessage()
     msg["From"] = f"{perfil['nombre']} <{sc['usuario'] or perfil['email']}>"
@@ -106,21 +116,19 @@ def _mensaje(cfg, destinatario, asunto, cuerpo, message_id):
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = message_id
     msg.set_content(cuerpo)
-    cv = config.ruta(perfil["cv"])
-    if cfg["envio"]["adjuntar_cv"] and os.path.exists(cv):
-        tipo, _ = mimetypes.guess_type(cv)
-        principal, secundario = (tipo or "application/octet-stream").split("/")
-        with open(cv, "rb") as f:
+    for ruta in archivos:
+        principal, secundario = adjuntos.tipo(ruta).split("/")
+        with open(ruta, "rb") as f:
             msg.add_attachment(f.read(), maintype=principal, subtype=secundario,
-                               filename=os.path.basename(cv))
+                               filename=os.path.basename(ruta))
     return msg
 
 
-def _guardar_eml(asunto, cuerpo, destinatario, message_id, cfg):
+def _guardar_eml(asunto, cuerpo, destinatario, message_id, cfg, archivos=()):
     """En simulación el correo se guarda como .eml para que puedas abrirlo y revisarlo."""
     carpeta = config.ruta("datos/bandeja_salida_simulacion")
     os.makedirs(carpeta, exist_ok=True)
-    msg = _mensaje(cfg, destinatario, asunto, cuerpo, message_id)
+    msg = _mensaje(cfg, destinatario, asunto, cuerpo, message_id, archivos)
     nombre = re.sub(r"[^\w.-]", "_", destinatario) + f"_{datetime.now():%Y%m%d_%H%M%S}.eml"
     with open(os.path.join(carpeta, nombre), "wb") as f:
         f.write(msg.as_bytes())
@@ -143,9 +151,9 @@ def _smtp(sc, usuario, contrasena):
     return s
 
 
-def _enviar_smtp(cfg, destinatario, asunto, cuerpo, message_id):
+def _enviar_smtp(cfg, destinatario, asunto, cuerpo, message_id, archivos=()):
     sc = cfg["servidor_correo"]
-    msg = _mensaje(cfg, destinatario, asunto, cuerpo, message_id)
+    msg = _mensaje(cfg, destinatario, asunto, cuerpo, message_id, archivos)
     with _smtp(sc, sc["usuario"], config.contrasena_correo()) as s:
         s.send_message(msg)
 

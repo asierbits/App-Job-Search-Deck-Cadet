@@ -678,6 +678,12 @@ function pintarBarraEnvio() {
   const tope = e.modo === "simulacion" ? e.max_por_ejecucion : Math.min(e.max_por_ejecucion, Math.max(0, e.limite_diario - e.enviados_hoy));
   const ahora = Math.min(n, tope);
   btn.textContent = !n ? "Enviar" : e.modo === "prueba" ? `Enviar ${ahora} (te llegan a ti)` : e.modo === "simulacion" ? `Enviar ${ahora} (simulado)` : `Enviar ${ahora} de verdad`;
+  // ¿Hay seleccionadas de un idioma para el que no has subido archivos?
+  const faltan = e.adjuntar ? ["es", "en"].filter((i) => !e.adjuntos[i] && sel.some((x) => (x.pais === "es" ? "es" : "en") === i)) : [];
+  if (faltan.length) {
+    $("#sel-ayuda").textContent = `⚠ Faltan archivos adjuntos en ${faltan.map((i) => (i === "es" ? "Español" : "English")).join(" y ")}: súbelos en Configuración → Archivos adjuntos (a esas navieras no se les enviará).`;
+    return;
+  }
   $("#sel-ayuda").textContent = !n
     ? "Marca las casillas de las navieras a las que quieres escribir, o pulsa «Seleccionar recomendadas»."
     : n > tope ? `Se enviarán ${ahora} ahora (límite ${e.modo === "simulacion" ? "por envío" : "por envío / diario"}); las demás quedan seleccionadas para después.`
@@ -852,7 +858,9 @@ async function abrirEmpresa(id) {
           <div class="meta">Para <b>${esc(c.destinatario)}</b>${c.modo === "prueba" ? " (modo prueba: te llega a ti)" : c.modo === "simulacion" ? " (simulación: no sale nada)" : ""} · en ${c.idioma === "es" ? "español" : "inglés"}</div>
           <div class="correo-asunto">${esc(c.asunto)}</div>
           <div class="correo-cuerpo">${esc(c.cuerpo)}</div>
-          ${c.adjunto ? `<div class="adjunto"><span>📎 ${esc(c.adjunto)}</span></div>` : ""}
+          <div class="lista-adjuntos">${!c.adjuntar ? "" : c.adjuntos.length
+            ? c.adjuntos.map((n) => `<div class="adjunto">📎 ${esc(n)}</div>`).join("")
+            : `<div class="adjunto falta">⚠ No hay archivos en ${c.idioma === "es" ? "Español" : "English"}: no se le podrá enviar hasta que los subas</div>`}</div>
         </div>`;
     } catch (err) {
       $("#ficha-correo").textContent = err.message;
@@ -987,6 +995,7 @@ async function cargarConfig() {
   pintarCuentaConfig();
   mostrarPlantilla();
   mostrarFuente();
+  cargarAdjuntos();
 }
 
 // Mostrar solo las opciones de la fuente elegida
@@ -1126,10 +1135,82 @@ function pintarPrevia() {
   $("#previa-para").textContent = `${ej.empresa} <${ej.email}>`;
   $("#previa-asunto").innerHTML = rellenarConMarcas(cfg.envio["asunto" + s], valores);
   $("#previa-cuerpo").innerHTML = rellenarConMarcas(plantilla.replace(/\n{3,}/g, "\n\n").trimEnd(), valores);
-  const adj = $("#previa-adjunto");
-  adj.hidden = !cfg.envio.adjuntar_cv;
-  $("span", adj).textContent = (cfg.perfil.cv || "cv.pdf").split(/[\\/]/).pop();
+  const lista = (st.adjuntos && st.adjuntos[st.idioma]) || [];
+  $("#previa-adjuntos").innerHTML = !cfg.envio.adjuntar_cv ? ""
+    : lista.length ? lista.map((a) => `<div class="adjunto">📎 ${esc(a.nombre)}</div>`).join("")
+    : `<div class="adjunto falta">⚠ Sin archivos en ${st.idioma === "en" ? "English" : "Español"}: súbelos en «Archivos adjuntos»</div>`;
 }
+
+// ------------------------------------------------------------ archivos adjuntos (por idioma)
+
+const tamano = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB");
+
+async function cargarAdjuntos() {
+  st.adjuntos = await api("adjuntos").catch(() => ({ es: [], en: [] }));
+  pintarAdjuntos();
+}
+
+function pintarAdjuntos() {
+  for (const idioma of ["es", "en"]) {
+    const lista = st.adjuntos[idioma] || [];
+    $(`#adjuntos-${idioma}`).innerHTML = lista.length
+      ? lista.map((a) => `<li><span class="n" title="${esc(a.nombre)}">📎 ${esc(a.nombre)}</span>
+          <span class="pequeno secundario">${tamano(a.tamano)}</span>
+          <a class="btn mini" href="/api/adjuntos/${idioma}/archivo?nombre=${encodeURIComponent(a.nombre)}" target="_blank" rel="noopener">Ver</a>
+          <button type="button" class="btn mini" data-quitar="${esc(a.nombre)}" data-idioma-q="${idioma}">Quitar</button></li>`).join("")
+      : `<li class="vacio-adj">Aún no hay archivos. Pulsa «+ Subir archivos».</li>`;
+  }
+  pintarPrevia();
+}
+
+async function subirArchivos(idioma, archivos) {
+  for (const f of archivos) {
+    try {
+      const r = await fetch(`/api/adjuntos/${idioma}`, { method: "POST", body: f, headers: { "X-Nombre": encodeURIComponent(f.name), "Content-Type": "application/octet-stream" } });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
+      st.adjuntos = j.adjuntos;
+      aviso(`Subido «${j.nombre}» (${idioma === "en" ? "English" : "Español"}).`, "bien");
+    } catch (err) {
+      aviso(`«${f.name}»: ${err.message}`, "critico");
+    }
+  }
+  pintarAdjuntos();
+  refrescar();
+}
+
+$$("[data-subir]").forEach((b) => b.addEventListener("click", () => {
+  st.subirIdioma = b.dataset.subir;
+  $("#input-adjuntos").click();
+}));
+$("#input-adjuntos").addEventListener("change", (ev) => {
+  const archivos = [...ev.target.files];
+  ev.target.value = "";
+  if (archivos.length) subirArchivos(st.subirIdioma, archivos);
+});
+// Arrastrar y soltar archivos sobre cada columna
+$$("[data-idioma-adj]").forEach((caja) => {
+  caja.addEventListener("dragover", (ev) => { ev.preventDefault(); caja.classList.add("soltar"); });
+  caja.addEventListener("dragleave", () => caja.classList.remove("soltar"));
+  caja.addEventListener("drop", (ev) => {
+    ev.preventDefault();
+    caja.classList.remove("soltar");
+    const archivos = [...ev.dataTransfer.files];
+    if (archivos.length) subirArchivos(caja.dataset.idiomaAdj, archivos);
+  });
+});
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-quitar]");
+  if (!b) return;
+  if (!confirm(`¿Quitar «${b.dataset.quitar}» de los adjuntos en ${b.dataset.idiomaQ === "en" ? "inglés" : "español"}?`)) return;
+  try {
+    st.adjuntos = await api("adjuntos/borrar", { idioma: b.dataset.idiomaQ, nombre: b.dataset.quitar });
+    pintarAdjuntos();
+    refrescar();
+  } catch (err) {
+    aviso(err.message, "critico");
+  }
+});
 
 $("#btn-borrar").addEventListener("click", async () => {
   const modo = st.config.modo;

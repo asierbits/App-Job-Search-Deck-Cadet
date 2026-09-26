@@ -5,6 +5,7 @@ datos/*.db
 datos/*.db-*
 datos/bandeja_salida_simulacion/
 datos/cv.*
+datos/adjuntos/
 
 # Python
 __pycache__/

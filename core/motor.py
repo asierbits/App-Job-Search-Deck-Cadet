@@ -226,6 +226,11 @@ class Motor:
                 correo.enviar(cfg, e)
                 etiqueta = {"simulacion": "simulado", "prueba": "a tu correo (prueba)", "real": "enviado"}[modo]
                 db.evento(f"Correo a {e['nombre']} <{e['email']}> — {etiqueta}", "ok", modo)
+            except correo.FaltanAdjuntos as ex:
+                # No es culpa de la naviera: queda pendiente y seleccionada para cuando subas los archivos
+                with db.conectar(modo) as con:
+                    con.execute("UPDATE empresas SET estado='nueva', seleccionada=1 WHERE id=?", (e["id"],))
+                db.evento(f"No enviado a {e['nombre']}: {ex}. Sigue seleccionada.", "aviso", modo)
             except Exception as ex:  # un fallo en una empresa no para el resto
                 with db.conectar(modo) as con:
                     con.execute("UPDATE empresas SET estado='error', notas=? WHERE id=?", (str(ex), e["id"]))

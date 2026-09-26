@@ -248,7 +248,7 @@
               <button type="button" class="var" data-var="sector">Sector</button>
             </div>
             <div class="fila">
-              <label class="casilla"><input type="checkbox" name="envio.adjuntar_cv"> Adjuntar mi CV</label>
+              <label class="casilla"><input type="checkbox" name="envio.adjuntar_cv"> Adjuntar archivos (CV…)</label>
               <button type="button" class="btn enlace" id="btn-restaurar">Restaurar el mensaje original</button>
             </div>
           </div>
@@ -264,10 +264,28 @@
               </div>
               <div class="correo-asunto" id="previa-asunto"></div>
               <div class="correo-cuerpo" id="previa-cuerpo"></div>
-              <div class="adjunto" id="previa-adjunto"><svg viewBox="0 0 24 24" class="ico"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg><span></span></div>
+              <div class="lista-adjuntos" id="previa-adjuntos"></div>
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Archivos adjuntos por idioma -->
+      <div class="tarjeta">
+        <h3>Archivos adjuntos</h3>
+        <p class="secundario pequeno" style="margin-top:-6px">Tu CV y lo que quieras enviar (certificados, libreta marítima, cartas…). A las navieras de España se les envían los de <b>Español</b>; a las demás, los de <b>English</b>. Se guardan solo en tu ordenador.</p>
+        <div class="rejilla-2 sin-margen">
+          <div class="caja-adjuntos" data-idioma-adj="es">
+            <div class="fila-entre"><b>🇪🇸 Español</b><button type="button" class="btn mini" data-subir="es">+ Subir archivos</button></div>
+            <ul class="adjuntos" id="adjuntos-es"></ul>
+          </div>
+          <div class="caja-adjuntos" data-idioma-adj="en">
+            <div class="fila-entre"><b>🇬🇧 English</b><button type="button" class="btn mini" data-subir="en">+ Subir archivos</button></div>
+            <ul class="adjuntos" id="adjuntos-en"></ul>
+          </div>
+        </div>
+        <input type="file" id="input-adjuntos" multiple accept=".pdf,.doc,.docx,.odt,.rtf,.txt,.jpg,.jpeg,.png" hidden>
+        <p class="ayuda">También puedes arrastrar los archivos desde una carpeta y soltarlos sobre la columna. PDF, Word, imágenes o texto; máximo 15 MB por archivo y 20 MB por idioma.</p>
       </div>
 
       <div class="rejilla-2">
@@ -280,7 +298,6 @@
           <label>Titulación en inglés (para los correos en inglés)<input name="perfil.titulacion_en" placeholder="BSc in Computer Engineering"></label>
           <label>Universidad<input name="perfil.universidad"></label>
           <label>LinkedIn<input name="perfil.linkedin"></label>
-          <label>Ruta del CV (PDF)<input name="perfil.cv"><span class="ayuda">Relativa a la carpeta del programa, p. ej. <code>datos/cv.pdf</code></span></label>
         </div>
 
         <div class="tarjeta">

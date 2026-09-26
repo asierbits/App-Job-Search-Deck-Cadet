@@ -10,9 +10,9 @@ import sys
 import webbrowser
 from datetime import date, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
-from core import config, correo, db
+from core import adjuntos, config, correo, db
 from core.motor import Motor, buscar_email_empresa, enviados_hoy
 
 PUERTO = int(os.environ.get("PUERTO", 8765))
@@ -67,6 +67,8 @@ def api_estado(_):
         "motor": motor.estado,
         "revision": motor.revision(cfg),
         "fuentes_leidas": db.leer_meta("fuentes_leidas", modo),
+        "adjuntar": cfg["envio"]["adjuntar_cv"],
+        "adjuntos": {i: len(adjuntos.para_correo(cfg, i)) for i in adjuntos.IDIOMAS},
         "kpis": kpis,
         "diario": [{"dia": d, "enviados": enviados_dia.get(d, 0), "respuestas": respuestas_dia.get(d, 0)}
                    for d in dias],
@@ -261,7 +263,14 @@ def api_correo_empresa(_, id_):
     asunto, cuerpo = correo.componer(cfg, e)
     destinatario = cfg["perfil"]["email"] if cfg["modo"] == "prueba" else e["email"]
     return {"asunto": asunto, "cuerpo": cuerpo, "idioma": correo.idioma(e), "destinatario": destinatario,
-            "modo": cfg["modo"], "adjunto": os.path.basename(cfg["perfil"]["cv"]) if cfg["envio"]["adjuntar_cv"] else ""}
+            "modo": cfg["modo"],
+            "adjuntos": [os.path.basename(r) for r in adjuntos.para_correo(cfg, correo.idioma(e))],
+            "adjuntar": cfg["envio"]["adjuntar_cv"]}
+
+
+def api_borrar_adjunto(d):
+    adjuntos.borrar(d.get("idioma"), d.get("nombre"))
+    return adjuntos.todos()
 
 
 def api_detener(_):
@@ -304,6 +313,8 @@ RUTAS = [
     ("POST", r"/api/rastrear-pendientes", api_rastrear_pendientes),
     ("POST", r"/api/enviar", api_enviar),
     ("POST", r"/api/seleccion", api_seleccion),
+    ("GET", r"/api/adjuntos", lambda _: adjuntos.todos()),
+    ("POST", r"/api/adjuntos/borrar", api_borrar_adjunto),
     ("GET", r"/api/empresas/(\d+)/correo", api_correo_empresa),
     ("POST", r"/api/detener", api_detener),
     ("POST", r"/api/comprobar", api_comprobar),
@@ -348,7 +359,39 @@ class Manejador(BaseHTTPRequestHandler):
             return
         self._json(404, {"error": "Ruta no encontrada"})
 
+    def _ver_adjunto(self, idioma):
+        """Abre en el navegador un archivo adjunto subido (para comprobar que es el correcto)."""
+        try:
+            nombre = parse_qs(urlparse(self.path).query).get("nombre", [""])[0]
+            ruta = adjuntos.ruta_archivo(idioma, nombre)
+        except (LookupError, ValueError) as ex:
+            return self._json(404, {"error": str(ex)})
+        with open(ruta, "rb") as f:
+            datos = f.read()
+        self.send_response(200)
+        self.send_header("Content-Type", adjuntos.tipo(ruta))
+        self.send_header("Content-Disposition", "inline; filename*=UTF-8''" + quote(os.path.basename(ruta)))
+        self.send_header("Content-Length", str(len(datos)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(datos)
+
+    def _subir_adjunto(self, idioma):
+        """Recibe un archivo subido desde el panel (el cuerpo es el archivo; el nombre va en la cabecera)."""
+        try:
+            largo = int(self.headers.get("Content-Length") or 0)
+            if largo > adjuntos.MAX_BYTES:
+                raise ValueError("El archivo pesa más de 15 MB")
+            datos = self.rfile.read(largo)
+            nombre = adjuntos.guardar(idioma, unquote(self.headers.get("X-Nombre", "")), datos)
+            self._json(200, {"nombre": nombre, "adjuntos": adjuntos.todos()})
+        except ValueError as ex:
+            self._json(400, {"error": str(ex)})
+
     def do_GET(self):
+        m = re.fullmatch(r"/api/adjuntos/(es|en)/archivo", urlparse(self.path).path)
+        if m:
+            return self._ver_adjunto(m.group(1))
         if self.path.startswith("/api/"):
             return self._api("GET")
         ruta = urlparse(self.path).path
@@ -378,6 +421,9 @@ class Manejador(BaseHTTPRequestHandler):
         if origen and urlparse(origen).hostname not in ("127.0.0.1", "localhost"):
             self._json(403, {"error": "Origen no permitido"})
             return
+        m = re.fullmatch(r"/api/adjuntos/(es|en)", urlparse(self.path).path)
+        if m:
+            return self._subir_adjunto(m.group(1))
         self._api("POST")
 
 
