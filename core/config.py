@@ -63,7 +63,7 @@ POR_DEFECTO = {
         "imap_host": "imap.gmail.com",
         "imap_port": 993,
         "usuario": "",
-        "intervalo_comprobacion_seg": 180,
+        "intervalo_comprobacion_seg": 60,
     },
     "simulacion": {
         "prob_respuesta": 0.6,

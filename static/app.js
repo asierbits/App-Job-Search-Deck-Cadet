@@ -145,6 +145,7 @@ function pintarCabecera(e) {
   chip.innerHTML = e.cuenta.conectada ? `<span class="punto"></span>${esc(e.cuenta.usuario)}` : `<span class="punto"></span>Conectar Gmail`;
   chip.title = e.cuenta.conectada ? "Cuenta conectada. Pulsa para cambiarla." : "Conecta la cuenta desde la que se enviarán los correos";
   if (st.vista === "config") { pintarCuentaConfig(); pintarPrevia(); }
+  pintarRevision(e);
 
   const n = e.kpis.no_leidas;
   $("#contador-no-leidas").hidden = !n;
@@ -162,6 +163,42 @@ function pintarCabecera(e) {
     avisos.append(div);
   }
 }
+
+// ------------------------------------------------------------ revisión del correo
+
+function pintarRevision(e) {
+  if (st.revisando) return;
+  const r = e.revision;
+  let texto, inactiva = false;
+  if (e.modo === "simulacion") { texto = "Simulación: las respuestas llegan solas"; inactiva = true; }
+  else if (!e.cuenta.conectada) { texto = "Conecta Gmail para leer las respuestas"; inactiva = true; }
+  else if (!r.ultima) { texto = e.kpis.enviados ? "Revisando tu correo en unos segundos…" : "Empezaré a revisar tu correo después del primer envío"; inactiva = !e.kpis.enviados; }
+  else {
+    const s = r.proxima_seg;
+    const siguiente = s == null ? "" : s <= 1 ? " · revisando…" : ` · siguiente en ${s >= 60 ? Math.floor(s / 60) + " min " + (s % 60) + " s" : s + " s"}`;
+    texto = `Correo revisado a las ${hora(r.ultima)}${siguiente}`;
+  }
+  $$(".revision-texto").forEach((el) => { el.textContent = texto; el.className = "revision-texto" + (inactiva ? " inactiva" : ""); });
+  $$("[data-revisar]").forEach((b) => (b.hidden = e.modo === "simulacion" || !e.cuenta.conectada));
+}
+
+document.addEventListener("click", async (ev) => {
+  if (!ev.target.closest("[data-revisar]") || st.revisando) return;
+  st.revisando = true;
+  $$("[data-revisar]").forEach((b) => (b.disabled = true));
+  $$(".revision-texto").forEach((el) => { el.textContent = "Revisando tu bandeja de entrada…"; el.className = "revision-texto revisando"; });
+  try {
+    const r = await api("comprobar", {});
+    aviso(r.nuevas ? `${r.nuevas} respuesta(s) nueva(s).` : "No hay respuestas nuevas.", r.nuevas ? "bien" : "");
+  } catch (err) {
+    aviso(err.message, "critico");
+  } finally {
+    st.revisando = false;
+    $$("[data-revisar]").forEach((b) => (b.disabled = false));
+    st.firma = "";
+    refrescar();
+  }
+});
 
 // ------------------------------------------------------------ panel
 

@@ -273,6 +273,14 @@ figcaption p { margin: 2px 0 0; }
 }
 .avatar.grande { width: 40px; height: 40px; font-size: 15px; }
 
+/* ---------- revisión del correo ---------- */
+.revision { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--tinta-2); }
+.tarjeta .revision { margin: -4px 0 8px; padding-bottom: 10px; border-bottom: 1px solid var(--linea); justify-content: space-between; }
+.revision-texto::before { content: "●"; margin-right: 6px; color: var(--bien); }
+.revision-texto.inactiva::before { color: var(--neutro); }
+.revision-texto.revisando::before { color: var(--acento); animation: latido 1s ease-in-out infinite; }
+@keyframes latido { 50% { opacity: .25; } }
+
 /* ---------- listas ---------- */
 .lista-personas { list-style: none; margin: 0; padding: 0; }
 .lista-personas li { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--linea); cursor: pointer; }

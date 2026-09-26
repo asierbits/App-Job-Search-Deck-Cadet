@@ -57,6 +57,7 @@ def api_estado(_):
         "max_por_ejecucion": cfg["envio"]["max_por_ejecucion"],
         "cuenta": config.cuenta(),
         "motor": motor.estado,
+        "revision": motor.revision(cfg),
         "kpis": kpis,
         "diario": [{"dia": d, "enviados": enviados_dia.get(d, 0), "respuestas": respuestas_dia.get(d, 0)}
                    for d in dias],

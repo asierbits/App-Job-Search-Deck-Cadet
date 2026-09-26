@@ -72,6 +72,7 @@
     <div class="rejilla-2">
       <div class="tarjeta">
         <div class="fila-entre"><h3>Últimas respuestas</h3><button class="btn enlace" data-ir="respuestas">Ver todas →</button></div>
+        <div class="revision"><span class="revision-texto"></span><button type="button" class="btn mini" data-revisar>↻ Revisar correo ahora</button></div>
         <ul id="ultimas-respuestas" class="lista-personas"></ul>
       </div>
       <div class="tarjeta">
@@ -117,7 +118,10 @@
 
   <!-- ============ RESPUESTAS ============ -->
   <section id="vista-respuestas" class="vista" hidden>
-    <div class="cabecera-vista"><h2 class="titulo-vista">Respuestas</h2></div>
+    <div class="cabecera-vista">
+      <h2 class="titulo-vista">Respuestas</h2>
+      <div class="revision"><span class="revision-texto"></span><button type="button" class="btn" data-revisar>↻ Revisar correo ahora</button></div>
+    </div>
     <div class="bandeja">
       <div class="tarjeta bandeja-lista">
         <div class="chips" id="filtro-categorias"></div>

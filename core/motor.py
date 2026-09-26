@@ -14,6 +14,7 @@ class Motor:
         self.estado = {"ejecutando": False, "fase": "Parado", "hecho": 0, "total": 0}
         self._ultima_imap = 0.0
         self._ultimo_error_imap = ""
+        self.ultima_revision = None  # hora ISO de la última lectura de la bandeja
 
     # ------------------------------------------------------------ ciclo principal
 
@@ -109,6 +110,8 @@ class Motor:
             return simulador.entregar_pendientes(cfg)
         if correo.problemas_envio(cfg):
             return 0
+        if not forzar and not enviados_total(cfg["modo"]):
+            return 0  # aún no se ha escrito a nadie: no gastar el intervalo
         intervalo = float(cfg["servidor_correo"]["intervalo_comprobacion_seg"])
         if not forzar and time.time() - self._ultima_imap < intervalo:
             return 0
@@ -116,6 +119,7 @@ class Motor:
         try:
             n = correo.comprobar_imap(cfg)
             self._ultimo_error_imap = ""
+            self.ultima_revision = db.ahora()
             if n:
                 db.evento(f"{n} respuesta(s) nueva(s) en tu bandeja de entrada.", "ok")
             return n
@@ -137,6 +141,20 @@ class Motor:
                     print("vigilancia:", ex)
                 time.sleep(3)
         threading.Thread(target=bucle, daemon=True).start()
+
+
+    def revision(self, cfg):
+        """Cuándo se leyó la bandeja por última vez y en cuántos segundos toca la siguiente."""
+        if cfg["modo"] == "simulacion" or not self._ultima_imap:
+            return {"ultima": self.ultima_revision, "proxima_seg": None}
+        intervalo = float(cfg["servidor_correo"]["intervalo_comprobacion_seg"])
+        return {"ultima": self.ultima_revision,
+                "proxima_seg": max(0, round(self._ultima_imap + intervalo - time.time()))}
+
+
+def enviados_total(modo):
+    with db.conectar(modo) as con:
+        return con.execute("SELECT count(*) FROM correos WHERE estado='enviado'").fetchone()[0]
 
 
 def enviados_hoy(modo):

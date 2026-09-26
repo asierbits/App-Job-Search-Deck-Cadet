@@ -2,7 +2,15 @@
 
 Panel local para buscar empresas y agencias de empleo, enviarles tu candidatura de prácticas por correo y ver sus respuestas en un solo sitio.
 
-Solo necesita **Python 3.10 o superior**; no hay que instalar nada más.
+## Instalar en tu ordenador
+
+1. **Instala Python** (gratis) desde <https://www.python.org/downloads/>. En Windows, marca la casilla **«Add python.exe to PATH»** al instalarlo. No hace falta instalar nada más.
+2. **Descomprime** el ZIP de Busca Prácticas donde quieras, por ejemplo en el Escritorio.
+3. **Abre** `iniciar.bat` con doble clic (en Windows). En Mac o Linux, abre una terminal en la carpeta y ejecuta `python3 app.py`.
+4. Se abre el panel en el navegador. Deja abierta la ventana negra mientras lo uses; para cerrarlo, ciérrala.
+5. Empieza en modo **Simulación** para ver cómo funciona, rellena **Configuración → Tu perfil** y conecta **tu propio Gmail** cuando quieras hacer pruebas reales (más abajo se explica cómo).
+
+Cada persona tiene su propia configuración, su cuenta y sus datos: nada de eso va dentro del ZIP.
 
 ## Arrancar
 
