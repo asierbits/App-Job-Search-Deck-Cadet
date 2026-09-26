@@ -78,6 +78,12 @@ class Motor:
                     db.evento("Detenido por el usuario.", "aviso", modo)
                     break
                 self._fase("Enviando correos", i, len(pendientes))
+                # Reservar la empresa: si ya no está pendiente (otro proceso, o la descartaste), saltarla
+                with db.conectar(modo) as con:
+                    reservada = con.execute("UPDATE empresas SET estado='enviando' WHERE id=? AND estado='nueva'",
+                                            (e["id"],)).rowcount == 1
+                if not reservada:
+                    continue
                 try:
                     correo.enviar(cfg, e)
                     etiqueta = {"simulacion": "simulado", "prueba": "a tu correo (prueba)", "real": "enviado"}[modo]

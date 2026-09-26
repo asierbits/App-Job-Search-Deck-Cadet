@@ -4,13 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Busca Prácticas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=DM+Sans:opsz,wght@9..40,400..700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="barra">
   <div class="marca">
+    <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 6V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1"/><rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 12h18"/></svg></span>
     <h1>Busca Prácticas</h1>
-    <span id="insignia-modo" class="insignia">…</span>
   </div>
   <nav class="pestanas" role="tablist">
     <button class="pestana activa" data-vista="panel">Panel</button>
@@ -19,8 +22,8 @@
     <button class="pestana" data-vista="config">Configuración</button>
   </nav>
   <div class="acciones">
-    <button id="btn-detener" class="btn" hidden>Detener</button>
-    <button id="btn-iniciar" class="btn primario">▶ Iniciar</button>
+    <span id="insignia-modo" class="insignia">…</span>
+    <button id="chip-cuenta" class="chip-cuenta" type="button"></button>
   </div>
 </header>
 
@@ -29,40 +32,50 @@
 
   <!-- ============ PANEL ============ -->
   <section id="vista-panel" class="vista">
-    <div class="kpis">
-      <div class="kpi"><div class="kpi-etiqueta">Empresas encontradas</div><div class="kpi-valor" id="k-empresas">0</div><div class="kpi-sub" id="k-empresas-sub"></div></div>
-      <div class="kpi"><div class="kpi-etiqueta">Contactadas</div><div class="kpi-valor" id="k-enviados">0</div><div class="kpi-sub" id="k-enviados-sub"></div></div>
-      <div class="kpi"><div class="kpi-etiqueta">Respondieron</div><div class="kpi-valor" id="k-respondidas">0</div><div class="kpi-sub" id="k-respondidas-sub"></div></div>
-      <div class="kpi"><div class="kpi-etiqueta">Entrevistas</div><div class="kpi-valor" id="k-entrevistas">0</div><div class="kpi-sub" id="k-entrevistas-sub"></div></div>
-    </div>
-
-    <div class="tarjeta" id="tarjeta-progreso">
-      <div class="fila-entre">
-        <h2 id="fase">Parado</h2>
-        <span class="secundario" id="fase-num"></span>
+    <div class="hero">
+      <div class="hero-texto">
+        <p class="sobretitulo" id="hoy"></p>
+        <h2 class="saludo" id="saludo">Hola</h2>
+        <p class="resumen" id="resumen"></p>
       </div>
-      <div class="pista"><div class="pista-relleno" id="barra-progreso"></div></div>
-      <p class="secundario pequeno" id="fase-ayuda">Pulsa <b>Iniciar</b> para buscar empresas y agencias y escribirles.</p>
+      <div class="hero-accion">
+        <button id="btn-iniciar" class="btn primario grande"><svg viewBox="0 0 24 24" class="ico"><path d="M7 4.5v15l12-7.5z"/></svg> Iniciar búsqueda</button>
+        <button id="btn-detener" class="btn grande" hidden>■ Detener</button>
+        <p class="pequeno secundario" id="hero-detalle"></p>
+      </div>
+      <div class="hero-progreso" id="hero-progreso" hidden>
+        <div class="fila-entre"><b id="fase">…</b><span class="secundario" id="fase-num"></span></div>
+        <div class="pista"><div class="pista-relleno" id="barra-progreso"></div></div>
+      </div>
     </div>
 
-    <div class="rejilla-2">
+    <div class="embudo" id="embudo"></div>
+
+    <div class="rejilla-graficos">
       <figure class="tarjeta">
-        <figcaption><h2>Embudo</h2><p class="secundario pequeno">Empresas en cada etapa</p></figcaption>
-        <div id="embudo" class="barras"></div>
+        <figcaption>
+          <div><h3>Actividad de los últimos 14 días</h3><p class="secundario pequeno">Correos enviados y respuestas recibidas por día</p></div>
+          <div class="leyenda">
+            <span><i class="muestra s1"></i>Enviados</span>
+            <span><i class="muestra s2"></i>Respuestas</span>
+          </div>
+        </figcaption>
+        <div class="grafico" id="grafico-diario"></div>
+        <details class="ver-tabla"><summary>Ver como tabla</summary><div id="tabla-diario"></div></details>
       </figure>
       <figure class="tarjeta">
-        <figcaption><h2>Tipo de respuesta</h2><p class="secundario pequeno">Empresas según lo que han contestado (clasificado automáticamente)</p></figcaption>
+        <figcaption><div><h3>Qué te han contestado</h3><p class="secundario pequeno">Clasificado automáticamente</p></div></figcaption>
         <div id="categorias" class="barras"></div>
       </figure>
     </div>
 
     <div class="rejilla-2">
       <div class="tarjeta">
-        <div class="fila-entre"><h2>Últimas respuestas</h2><button class="btn enlace" data-ir="respuestas">Ver todas →</button></div>
-        <ul id="ultimas-respuestas" class="lista-simple"></ul>
+        <div class="fila-entre"><h3>Últimas respuestas</h3><button class="btn enlace" data-ir="respuestas">Ver todas →</button></div>
+        <ul id="ultimas-respuestas" class="lista-personas"></ul>
       </div>
       <div class="tarjeta">
-        <h2>Actividad</h2>
+        <h3>Actividad</h3>
         <ol id="registro" class="registro"></ol>
       </div>
     </div>
@@ -70,6 +83,10 @@
 
   <!-- ============ EMPRESAS ============ -->
   <section id="vista-empresas" class="vista" hidden>
+    <div class="cabecera-vista">
+      <h2 class="titulo-vista">Empresas y agencias</h2>
+      <button class="btn" id="btn-nueva-empresa">+ Añadir a mano</button>
+    </div>
     <div class="tarjeta">
       <div class="filtros">
         <input id="filtro-texto" type="search" placeholder="Buscar por nombre, sector o email…">
@@ -87,7 +104,6 @@
           <option value="empresa">Solo empresas</option>
           <option value="agencia">Solo agencias</option>
         </select>
-        <button class="btn" id="btn-nueva-empresa">+ Añadir a mano</button>
       </div>
       <div class="tabla-envoltorio">
         <table class="tabla">
@@ -95,12 +111,13 @@
           <tbody id="tabla-empresas"></tbody>
         </table>
       </div>
-      <p id="empresas-vacio" class="vacio" hidden>Todavía no hay empresas. Pulsa <b>Iniciar</b> para buscar.</p>
+      <p id="empresas-vacio" class="vacio" hidden>Todavía no hay empresas. Pulsa <b>Iniciar búsqueda</b> en el panel.</p>
     </div>
   </section>
 
   <!-- ============ RESPUESTAS ============ -->
   <section id="vista-respuestas" class="vista" hidden>
+    <div class="cabecera-vista"><h2 class="titulo-vista">Respuestas</h2></div>
     <div class="bandeja">
       <div class="tarjeta bandeja-lista">
         <div class="chips" id="filtro-categorias"></div>
@@ -115,23 +132,87 @@
 
   <!-- ============ CONFIGURACIÓN ============ -->
   <section id="vista-config" class="vista" hidden>
-    <form id="form-config">
+    <div class="cabecera-vista"><h2 class="titulo-vista">Configuración</h2></div>
+    <form id="form-config" autocomplete="off">
+
+      <div class="tarjeta tarjeta-cuenta">
+        <div class="cuenta-icono" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div>
+        <div class="cuenta-texto">
+          <h3>Cuenta de correo</h3>
+          <p id="cuenta-estado" class="secundario"></p>
+        </div>
+        <div class="fila" style="margin:0">
+          <button type="button" class="btn" id="btn-desconectar" hidden>Desconectar</button>
+          <button type="button" class="btn primario" id="btn-conectar">Conectar Gmail</button>
+        </div>
+      </div>
+
       <div class="tarjeta">
-        <h2>Modo de funcionamiento</h2>
+        <h3>Modo de funcionamiento</h3>
         <div class="modos">
           <label class="modo"><input type="radio" name="modo" value="simulacion">
-            <span><b>Simulación</b><br><span class="secundario pequeno">No sale ningún correo de tu PC. Las empresas son de ejemplo (o reales si eliges OpenStreetMap) y las respuestas se inventan para que pruebes el panel.</span></span></label>
+            <span><b>Simulación</b><br><span class="secundario pequeno">No sale ningún correo de tu PC. Las respuestas se inventan para que pruebes el panel.</span></span></label>
           <label class="modo"><input type="radio" name="modo" value="prueba">
-            <span><b>Prueba real</b><br><span class="secundario pequeno">Envía correos de verdad por tu Gmail, pero <b>todos llegan a tu propio correo</b>. Contesta tú como si fueras la empresa y verás la respuesta en el panel.</span></span></label>
+            <span><b>Prueba real</b><br><span class="secundario pequeno">Envía de verdad por tu Gmail, pero <b>todos los correos llegan a ti</b>. Contéstalos como si fueras la empresa.</span></span></label>
           <label class="modo peligro"><input type="radio" name="modo" value="real">
-            <span><b>Real</b><br><span class="secundario pequeno">Envía los correos a las empresas y agencias. Con límite diario y pausa entre envíos.</span></span></label>
+            <span><b>Real</b><br><span class="secundario pequeno">Envía los correos a las empresas y agencias, con límite diario y pausa entre envíos.</span></span></label>
         </div>
-        <p class="secundario pequeno">Cada modo guarda sus datos por separado: lo que hagas en simulación no afecta a los envíos reales.</p>
+        <p class="secundario pequeno" style="margin-bottom:0">Cada modo guarda sus datos por separado: lo que hagas en simulación no afecta a los envíos reales.</p>
+      </div>
+
+      <!-- Editor del mensaje -->
+      <div class="tarjeta editor">
+        <div class="fila-entre">
+          <div><h3>Tu mensaje</h3><p class="secundario pequeno" style="margin:0">Lo que recibirá cada empresa. Las <span class="var-ejemplo">variables</span> se rellenan solas con sus datos y los tuyos.</p></div>
+          <div class="segmentado" role="tablist" id="selector-plantilla">
+            <button type="button" class="activo" data-plantilla="empresa">Para empresas</button>
+            <button type="button" data-plantilla="agencia">Para agencias</button>
+          </div>
+        </div>
+        <div class="editor-cols">
+          <div class="editor-campos">
+            <label>Asunto<input name="envio.asunto" data-editable></label>
+            <div class="etiqueta-cuerpo"><span id="etq-mensaje">Mensaje para empresas</span>
+              <textarea name="envio.plantilla" rows="16" data-editable data-tipo="empresa" aria-labelledby="etq-mensaje"></textarea>
+              <textarea name="envio.plantilla_agencia" rows="16" data-editable data-tipo="agencia" aria-labelledby="etq-mensaje" hidden></textarea>
+            </div>
+            <div class="insertar">
+              <span class="pequeno secundario">Insertar:</span>
+              <button type="button" class="var" data-var="empresa">Empresa</button>
+              <button type="button" class="var" data-var="nombre">Tu nombre</button>
+              <button type="button" class="var" data-var="titulacion">Titulación</button>
+              <button type="button" class="var" data-var="universidad">Universidad</button>
+              <button type="button" class="var" data-var="telefono">Teléfono</button>
+              <button type="button" class="var" data-var="linkedin">LinkedIn</button>
+              <button type="button" class="var" data-var="ciudad">Ciudad</button>
+              <button type="button" class="var" data-var="sector">Sector</button>
+            </div>
+            <div class="fila">
+              <label class="casilla"><input type="checkbox" name="envio.adjuntar_cv"> Adjuntar mi CV</label>
+              <button type="button" class="btn enlace" id="btn-restaurar">Restaurar el mensaje original</button>
+            </div>
+          </div>
+          <div class="previa-correo" aria-live="polite">
+            <p class="sobretitulo">Así lo verá <span id="previa-quien">la empresa</span></p>
+            <div class="correo-mock">
+              <div class="correo-cab">
+                <div class="avatar grande" id="previa-avatar">?</div>
+                <div>
+                  <div><b id="previa-de"></b></div>
+                  <div class="pequeno secundario">para <span id="previa-para"></span></div>
+                </div>
+              </div>
+              <div class="correo-asunto" id="previa-asunto"></div>
+              <div class="correo-cuerpo" id="previa-cuerpo"></div>
+              <div class="adjunto" id="previa-adjunto"><svg viewBox="0 0 24 24" class="ico"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg><span></span></div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="rejilla-2">
         <div class="tarjeta">
-          <h2>Tu perfil</h2>
+          <h3>Tu perfil</h3>
           <label>Nombre completo<input name="perfil.nombre"></label>
           <label>Email de contacto<input name="perfil.email" type="email"></label>
           <label>Teléfono<input name="perfil.telefono"></label>
@@ -142,7 +223,7 @@
         </div>
 
         <div class="tarjeta">
-          <h2>Búsqueda</h2>
+          <h3>Búsqueda</h3>
           <label>Fuente
             <select name="busqueda.fuente">
               <option value="ejemplo">Datos de ejemplo (ficticios)</option>
@@ -157,76 +238,94 @@
           </fieldset>
           <label>Palabras clave (opcional, separadas por comas)<input name="busqueda.palabras_clave" placeholder="software, marketing, ingeniería"></label>
           <label>Máximo de resultados<input name="busqueda.max_resultados" type="number" min="1"></label>
-          <p class="ayuda">OpenStreetMap es gratuito, pero muchas empresas no publican su email ahí: saldrán como «Sin email» y podrás añadirlo a mano desde la pestaña Empresas.</p>
+          <p class="ayuda">OpenStreetMap es gratuito, pero muchas empresas no publican su email ahí: saldrán como «Sin email» y podrás añadirlo a mano en la pestaña Empresas.</p>
         </div>
-      </div>
-
-      <div class="tarjeta">
-        <h2>Correo que se envía</h2>
-        <p class="ayuda">Variables disponibles: <code>{empresa}</code> <code>{nombre}</code> <code>{titulacion}</code> <code>{universidad}</code> <code>{telefono}</code> <code>{linkedin}</code> <code>{ciudad}</code> <code>{sector}</code></p>
-        <label>Asunto<input name="envio.asunto"></label>
-        <div class="rejilla-2 sin-margen">
-          <label>Plantilla para empresas<textarea name="envio.plantilla" rows="14"></textarea></label>
-          <label>Plantilla para agencias<textarea name="envio.plantilla_agencia" rows="14"></textarea></label>
-        </div>
-        <div class="fila">
-          <button type="button" class="btn" data-previa="empresa">Vista previa (empresa)</button>
-          <button type="button" class="btn" data-previa="agencia">Vista previa (agencia)</button>
-          <label class="casilla"><input type="checkbox" name="envio.adjuntar_cv"> Adjuntar CV</label>
-        </div>
-        <pre id="vista-previa" class="previa" hidden></pre>
       </div>
 
       <div class="rejilla-2">
         <div class="tarjeta">
-          <h2>Límites de envío</h2>
+          <h3>Límites de envío</h3>
           <label>Máximo por cada «Iniciar»<input name="envio.max_por_ejecucion" type="number" min="1"></label>
           <label>Límite diario (prueba y real)<input name="envio.limite_diario" type="number" min="1"></label>
           <label>Pausa entre correos (segundos)<input name="envio.pausa_segundos" type="number" min="5"><span class="ayuda">Enviar despacio evita que Gmail te marque como spam.</span></label>
-        </div>
-        <div class="tarjeta">
-          <h2>Servidor de correo</h2>
-          <label>Tu cuenta de Gmail<input name="servidor_correo.usuario" type="email" placeholder="tu.correo@gmail.com"></label>
-          <div class="dos-cols">
-            <label>SMTP<input name="servidor_correo.smtp_host"></label>
-            <label>Puerto<input name="servidor_correo.smtp_port" type="number"></label>
-            <label>IMAP<input name="servidor_correo.imap_host"></label>
-            <label>Puerto<input name="servidor_correo.imap_port" type="number"></label>
-          </div>
           <label>Revisar respuestas cada (segundos)<input name="servidor_correo.intervalo_comprobacion_seg" type="number" min="30"></label>
-          <p class="ayuda">La contraseña <b>no</b> se escribe aquí: va en el fichero <code>secretos.json</code> (mira el README). Usa una «contraseña de aplicación» de Google, no tu contraseña normal.</p>
         </div>
-      </div>
-
-      <div class="rejilla-2">
         <div class="tarjeta">
-          <h2>Simulación</h2>
+          <h3>Simulación</h3>
           <label>Probabilidad de que respondan (0 a 1)<input name="simulacion.prob_respuesta" type="number" min="0" max="1" step="0.05"></label>
           <div class="dos-cols">
             <label>Retraso mínimo (s)<input name="simulacion.retraso_min_seg" type="number" min="0"></label>
             <label>Retraso máximo (s)<input name="simulacion.retraso_max_seg" type="number" min="0"></label>
           </div>
-        </div>
-        <div class="tarjeta">
-          <h2>Borrar datos</h2>
+          <details class="avanzado">
+            <summary>Servidor de correo (avanzado)</summary>
+            <div class="dos-cols">
+              <label>SMTP<input name="servidor_correo.smtp_host"></label>
+              <label>Puerto<input name="servidor_correo.smtp_port" type="number"></label>
+              <label>IMAP<input name="servidor_correo.imap_host"></label>
+              <label>Puerto<input name="servidor_correo.imap_port" type="number"></label>
+            </div>
+            <p class="ayuda">Solo cámbialo si no usas Gmail.</p>
+          </details>
+          <hr>
           <p class="secundario pequeno">Borra empresas, correos y respuestas del modo actual (<b id="modo-borrar"></b>). Los demás modos no se tocan.</p>
           <button type="button" class="btn peligro" id="btn-borrar">Borrar datos de este modo</button>
         </div>
       </div>
 
       <div class="guardar">
-        <span id="estado-guardado" class="secundario pequeno"></span>
+        <span id="estado-guardado" class="pequeno"></span>
         <button type="submit" class="btn primario">Guardar configuración</button>
       </div>
     </form>
   </section>
 </main>
 
-<!-- Ventana de detalle de empresa -->
+<!-- Conectar Gmail -->
+<dialog id="dialogo-cuenta" class="dialogo-cuenta">
+  <form id="form-cuenta" method="dialog" autocomplete="off">
+    <div class="cuenta-cabecera">
+      <div class="cuenta-icono grande" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div>
+      <div>
+        <h2>Conecta tu Gmail</h2>
+        <p class="secundario">Desde esta cuenta se enviarán tus candidaturas y aquí se leerán las respuestas de las empresas.</p>
+      </div>
+    </div>
+
+    <ol class="pasos">
+      <li><span>Activa la <a href="https://myaccount.google.com/signinoptions/twosv" target="_blank" rel="noopener">verificación en dos pasos</a> de tu cuenta de Google (si no la tienes ya).</span></li>
+      <li><span>Crea una <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">contraseña de aplicación</a>. Ponle de nombre «Busca Prácticas».</span></li>
+      <li><span>Google te mostrará 16 letras. Pégalas aquí abajo.</span></li>
+    </ol>
+
+    <label>Tu dirección de Gmail<input name="usuario" type="email" placeholder="nombre@gmail.com" required></label>
+    <label>Contraseña de aplicación
+      <span class="campo-clave">
+        <input name="contrasena" type="password" placeholder="xxxx xxxx xxxx xxxx" required>
+        <button type="button" class="btn enlace" id="ver-clave">Mostrar</button>
+      </span>
+    </label>
+
+    <div id="cuenta-resultado" class="resultado" hidden></div>
+
+    <p class="nota-privada"><svg viewBox="0 0 24 24" class="ico"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      <span>Se guarda solo en tu ordenador (<code>secretos.json</code>) y nunca se sube a GitHub. Puedes revocarla cuando quieras desde tu cuenta de Google.</span></p>
+
+    <div class="fila-entre">
+      <button type="button" class="btn" id="cuenta-luego">Ahora no</button>
+      <button type="submit" class="btn primario" id="cuenta-enviar">Conectar y probar</button>
+    </div>
+    <p class="pequeno secundario" id="cuenta-nota-sim" style="margin:10px 0 0" hidden>En modo simulación no hace falta: puedes conectarla más tarde desde el botón de arriba a la derecha.</p>
+  </form>
+</dialog>
+
+<!-- Detalle de empresa / alta manual -->
 <dialog id="dialogo">
   <div class="dialogo-cabecera"><h2 id="dialogo-titulo"></h2><button class="btn enlace" id="dialogo-cerrar" aria-label="Cerrar">✕</button></div>
   <div id="dialogo-cuerpo"></div>
 </dialog>
+
+<div id="tooltip" class="tooltip" hidden></div>
 
 <script src="app.js"></script>
 </body>

@@ -8,6 +8,7 @@ import os
 import re
 import sys
 import webbrowser
+from datetime import date, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -39,10 +40,26 @@ def api_estado(_):
             "errores": uno("SELECT count(*) FROM empresas WHERE estado='error'"),
             "categorias": categorias,
         }
+        # Actividad de los últimos 14 días (envíos y respuestas por día)
+        desde = (date.today() - timedelta(days=13)).isoformat()
+        enviados_dia = dict(con.execute(
+            "SELECT substr(enviado_en,1,10) d, count(*) FROM correos WHERE estado='enviado' AND enviado_en >= ? "
+            "GROUP BY d", (desde,)).fetchall())
+        respuestas_dia = dict(con.execute(
+            "SELECT substr(recibido_en,1,10) d, count(*) FROM respuestas WHERE recibido_en >= ? GROUP BY d",
+            (desde,)).fetchall())
+    dias = [(date.today() - timedelta(days=i)).isoformat() for i in range(13, -1, -1)]
     return {
         "modo": modo,
+        "nombre": cfg["perfil"]["nombre"],
+        "ciudad": cfg["busqueda"]["ciudad"],
+        "fuente": cfg["busqueda"]["fuente"],
+        "max_por_ejecucion": cfg["envio"]["max_por_ejecucion"],
+        "cuenta": config.cuenta(),
         "motor": motor.estado,
         "kpis": kpis,
+        "diario": [{"dia": d, "enviados": enviados_dia.get(d, 0), "respuestas": respuestas_dia.get(d, 0)}
+                   for d in dias],
         "problemas": correo.problemas_envio(cfg),
         "enviados_hoy": enviados_hoy(modo),
         "limite_diario": cfg["envio"]["limite_diario"],
@@ -137,20 +154,36 @@ def api_guardar_config(d):
     actual = config.cargar()
     if motor.estado["ejecutando"] and d.get("modo", actual["modo"]) != actual["modo"]:
         raise ValueError("No puedes cambiar de modo mientras el proceso está en marcha")
+    # La cuenta solo cambia desde «Conectar Gmail», nunca al guardar el formulario
+    d.setdefault("servidor_correo", {})["usuario"] = actual["servidor_correo"]["usuario"]
     cfg = config.guardar(d)
     if cfg["modo"] != actual["modo"]:
         db.evento(f"Cambiado a modo '{cfg['modo']}'.", "aviso", cfg["modo"])
     return cfg
 
 
-def api_vista_previa(d):
+def api_conectar_cuenta(d):
+    usuario = (d.get("usuario") or "").strip().lower()
+    contrasena = re.sub(r"\s+", "", d.get("contrasena") or "")  # Google la muestra en grupos de 4 con espacios
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", usuario):
+        raise ValueError("Escribe una dirección de correo válida")
+    if not contrasena:
+        raise ValueError("Falta la contraseña de aplicación")
     cfg = config.cargar()
-    if d.get("config"):
-        cfg = config._fusionar(cfg, d["config"])
-    ejemplo = {"nombre": "Empresa Ejemplo S.L." if d.get("tipo") != "agencia" else "Agencia Ejemplo",
-               "tipo": d.get("tipo", "empresa"), "ciudad": cfg["busqueda"]["ciudad"], "sector": "Informática"}
-    asunto, cuerpo = correo.componer(cfg, ejemplo)
-    return {"asunto": asunto, "cuerpo": cuerpo}
+    correo.probar_conexion(cfg, usuario, contrasena)
+    config.guardar_contrasena(contrasena)
+    cfg["servidor_correo"]["usuario"] = usuario
+    if cfg["perfil"]["email"] in ("", config.POR_DEFECTO["perfil"]["email"]):
+        cfg["perfil"]["email"] = usuario
+    config.guardar(cfg)
+    db.evento(f"Cuenta de correo conectada: {usuario}", "ok")
+    return config.cuenta()
+
+
+def api_desconectar_cuenta(_):
+    config.guardar_contrasena("")
+    db.evento("Cuenta de correo desconectada.", "aviso")
+    return config.cuenta()
 
 
 def api_iniciar(_):
@@ -191,7 +224,9 @@ RUTAS = [
     ("GET", r"/api/eventos", api_eventos),
     ("GET", r"/api/config", lambda _: config.cargar()),
     ("POST", r"/api/config", api_guardar_config),
-    ("POST", r"/api/vista-previa", api_vista_previa),
+    ("GET", r"/api/config/defecto", lambda _: config.POR_DEFECTO),
+    ("POST", r"/api/cuenta", api_conectar_cuenta),
+    ("POST", r"/api/cuenta/desconectar", api_desconectar_cuenta),
     ("POST", r"/api/iniciar", api_iniciar),
     ("POST", r"/api/detener", api_detener),
     ("POST", r"/api/comprobar", api_comprobar),
@@ -274,9 +309,18 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     if not os.path.exists(config.RUTA_CONFIG):
         config.guardar(config.POR_DEFECTO)
-    motor.vigilar()
-    servidor = ThreadingHTTPServer(("127.0.0.1", PUERTO), Manejador)
     url = f"http://127.0.0.1:{PUERTO}"
+    # En Windows, reutilizar la dirección permitiría abrir DOS paneles en el mismo puerto: los dos
+    # enviarían correos y entregarían respuestas a la vez. Así, el segundo falla y abre el primero.
+    ThreadingHTTPServer.allow_reuse_address = False
+    try:
+        servidor = ThreadingHTTPServer(("127.0.0.1", PUERTO), Manejador)
+    except OSError:
+        print(f"El panel ya está abierto en {url}. Lo abro en el navegador.")
+        if "--sin-navegador" not in sys.argv:
+            webbrowser.open(url)
+        return
+    motor.vigilar()
     print(f"Panel en {url}  (Ctrl+C para salir)")
     if "--sin-navegador" not in sys.argv:
         webbrowser.open(url)

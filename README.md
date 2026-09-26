@@ -10,7 +10,7 @@ Solo necesita **Python 3.10 o superior**; no hay que instalar nada más.
 python app.py
 ```
 
-o doble clic en `iniciar.bat`. Se abre el panel en <http://127.0.0.1:8765>, que solo es accesible desde tu PC.
+o doble clic en `iniciar.bat`. Se abre el panel en <http://127.0.0.1:8765>, que solo es accesible desde tu PC. Si ya estaba abierto, no se arranca un segundo panel: se abre el que ya existe. Así nunca se envía el mismo correo dos veces.
 
 ## Los tres modos
 
@@ -29,15 +29,21 @@ Orden recomendado: **Simulación → Prueba real → Real**.
 - **Datos de ejemplo**: 22 empresas y agencias ficticias con correos `@example.com`/`.org`/`.net`. Son dominios reservados y ningún correo llega nunca a ellos.
 - **OpenStreetMap**: empresas y agencias de empleo reales alrededor de tu ciudad. Es gratis y no necesita clave. Muchas no publican su email; aparecen como «Sin email» y puedes añadírselo a mano en la pestaña **Empresas** (búscalo en su web). También puedes añadir empresas enteras con **+ Añadir a mano**.
 
-## Configurar Gmail (para los modos prueba y real)
+## Conectar Gmail (para los modos prueba y real)
+
+Al abrir el panel aparece la ventana **Conecta tu Gmail**. También puedes abrirla desde el botón de arriba a la derecha o desde **Configuración → Cuenta de correo**.
 
 1. Activa la verificación en dos pasos en tu cuenta de Google.
 2. Crea una contraseña de aplicación en <https://myaccount.google.com/apppasswords>.
-3. Copia `secretos.ejemplo.json` a `secretos.json` y pega esa contraseña. Este fichero está en `.gitignore` y nunca se sube a GitHub.
-4. En **Configuración → Servidor de correo** escribe tu dirección de Gmail.
-5. Pon tu CV en `datos/cv.pdf` (o cambia la ruta en **Tu perfil**).
+3. Escribe tu Gmail y pega las 16 letras. El panel comprueba que puede enviar (SMTP) y leer (IMAP) antes de guardarla.
 
-Para leer las respuestas se usa IMAP, que en Gmail viene activado. El programa solo **lee** la bandeja de entrada y no marca nada como leído.
+La contraseña se guarda solo en `secretos.json`, que está en `.gitignore` y nunca se sube a GitHub. Puedes revocarla cuando quieras desde tu cuenta de Google.
+
+Pon tu CV en `datos/cv.pdf` (o cambia la ruta en **Tu perfil**). El programa solo **lee** la bandeja de entrada y no marca nada como leído.
+
+## Editar el mensaje
+
+En **Configuración → Tu mensaje** hay una versión para empresas y otra para agencias. Los botones «Insertar» añaden variables como `{empresa}` o `{nombre}`, y a la derecha ves en directo cómo quedará el correo. Si un dato de tu perfil está vacío, la vista previa lo marca en amarillo.
 
 ## Cómo se detectan las respuestas
 

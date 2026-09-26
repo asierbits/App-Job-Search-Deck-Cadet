@@ -109,13 +109,25 @@ def guardar(nueva):
 
 
 def contrasena_correo():
-    """La contraseña nunca va en config.json ni pasa por el panel."""
+    """La contraseña vive solo en secretos.json (ignorado por git) y el panel nunca la recibe de vuelta."""
     if os.environ.get("BUSCATRABAJO_PASS"):
         return os.environ["BUSCATRABAJO_PASS"]
     if os.path.exists(RUTA_SECRETOS):
         with open(RUTA_SECRETOS, encoding="utf-8") as f:
             return json.load(f).get("smtp_password", "")
     return ""
+
+
+def guardar_contrasena(contrasena):
+    with _lock:
+        with open(RUTA_SECRETOS, "w", encoding="utf-8") as f:
+            json.dump({"smtp_password": contrasena}, f, indent=2)
+
+
+def cuenta():
+    """Estado de la cuenta de correo conectada (sin exponer la contraseña)."""
+    usuario = cargar()["servidor_correo"]["usuario"]
+    return {"usuario": usuario, "conectada": bool(usuario and contrasena_correo())}
 
 
 def ruta(rel):

@@ -12,7 +12,20 @@ const CATEGORIAS = {
   automatica: { txt: "Automática", icono: "↻" },
   otra: { txt: "Otra", icono: "•" },
 };
-const ESTADOS = { nueva: "Pendiente de enviar", sin_email: "Sin email", enviado: "Enviado", respondida: "Respondida", descartada: "Descartada", error: "Error" };
+const ESTADOS = { nueva: "Pendiente de enviar", sin_email: "Sin email", enviando: "Enviando…", enviado: "Enviado", respondida: "Respondida", descartada: "Descartada", error: "Error" };
+const ICONOS = {
+  buscar: '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  enviar: '<svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>',
+  respuesta: '<svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
+  objetivo: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>',
+  flecha: '<svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>',
+};
+// Empresas de ejemplo para la vista previa del mensaje
+const EJEMPLO = {
+  empresa: { empresa: "Nortia Software", sector: "Informática / IT", email: "rrhh@nortia.example.com" },
+  agencia: { empresa: "Talentia Empleo", sector: "Agencia de empleo / ETT", email: "candidatos@talentia.example.com" },
+};
+const NOMBRES_VAR = { empresa: "empresa", nombre: "tu nombre", titulacion: "titulación", universidad: "universidad", telefono: "teléfono", linkedin: "LinkedIn", ciudad: "ciudad", sector: "sector", email: "email" };
 
 const st = {
   vista: "panel",
@@ -22,9 +35,14 @@ const st = {
   respuestas: [],
   ultimoEvento: 0,
   firma: "",
+  firmaGrafico: "",
   filtroCat: "todas",
   respuestaSel: null,
   config: null,
+  sucio: false,
+  plantilla: "empresa",
+  ultimoCampo: null,
+  dialogoCuentaMostrado: false,
 };
 
 // ------------------------------------------------------------ utilidades
@@ -49,12 +67,17 @@ const hora = (iso) => (iso ? iso.slice(11, 16) : "");
 function fecha(iso) {
   if (!iso) return "";
   const d = new Date(iso);
-  const hoy = new Date();
-  return d.toDateString() === hoy.toDateString() ? "hoy " + hora(iso) : d.toLocaleDateString("es-ES", { day: "numeric", month: "short" }) + " " + hora(iso);
+  return d.toDateString() === new Date().toDateString() ? "hoy " + hora(iso) : d.toLocaleDateString("es-ES", { day: "numeric", month: "short" }) + " " + hora(iso);
 }
 const pct = (a, b) => (b ? Math.round((a / b) * 100) + "%" : "—");
-const cat = (c) => { const k = CATEGORIAS[c] || CATEGORIAS.otra; return `<span class="cat cat-${esc(c)}"><span class="icono">${k.icono}</span>${k.txt}</span>`; };
+const cat = (c, pastilla = false) => { const k = CATEGORIAS[c] || CATEGORIAS.otra; return `<span class="cat cat-${esc(c)} ${pastilla ? "pastilla" : ""}"><span class="icono">${k.icono}</span>${k.txt}</span>`; };
 const estadoHtml = (e) => `<span class="estado estado-${esc(e)}">${esc(ESTADOS[e] || e)}</span>`;
+function iniciales(nombre) {
+  const palabras = String(nombre || "?").replace(/<.*>/, "").trim().split(/\s+/).filter((p) => /^[\p{L}\d]/u.test(p));
+  return ((palabras[0] || "?")[0] + (palabras[1] ? palabras[1][0] : "")).toUpperCase();
+}
+const avatar = (nombre, categoria, extra = "") => `<div class="avatar ${categoria ? "cat-" + esc(categoria) : ""} ${extra}" aria-hidden="true">${esc(iniciales(nombre))}</div>`;
+const nombrePila = (n) => (n && n !== "Tu Nombre" ? n.trim().split(/\s+/)[0] : "");
 
 // ------------------------------------------------------------ navegación
 
@@ -65,7 +88,8 @@ function mostrar(vista) {
   $$(".vista").forEach((s) => (s.hidden = s.id !== "vista-" + vista));
   if (vista === "empresas") cargarEmpresas();
   if (vista === "respuestas") cargarRespuestas();
-  if (vista === "config") cargarConfig();
+  if (vista === "config" && !st.sucio) cargarConfig();
+  if (vista === "panel" && st.estado) { st.firmaGrafico = ""; pintarGrafico(st.estado.diario); }
 }
 $$(".pestana").forEach((b) => b.addEventListener("click", () => mostrar(b.dataset.vista)));
 document.addEventListener("click", (ev) => {
@@ -73,14 +97,14 @@ document.addEventListener("click", (ev) => {
   if (ir) mostrar(ir.dataset.ir);
 });
 
-// ------------------------------------------------------------ estado y panel
+// ------------------------------------------------------------ estado general
 
 async function refrescar() {
   let e;
   try {
     e = await api("estado");
   } catch {
-    $("#fase").textContent = "Sin conexión con el programa (¿está abierto app.py?)";
+    $("#resumen").textContent = "Sin conexión con el programa. ¿Está abierto app.py?";
     return;
   }
   if (e.modo !== st.modo) {
@@ -94,7 +118,13 @@ async function refrescar() {
   pintarPanel(e);
   await cargarEventos();
 
-  // Si algo cambió (nuevas empresas, envíos o respuestas), recargar las listas visibles
+  if (!st.dialogoCuentaMostrado) {
+    st.dialogoCuentaMostrado = true;
+    let omitido = false;
+    try { omitido = sessionStorage.getItem("cuenta-omitida") === "1"; } catch {}
+    if (!e.cuenta.conectada && !omitido) abrirCuenta();
+  }
+
   const k = e.kpis;
   const firma = [e.modo, k.empresas, k.enviados, k.respondidas, k.no_leidas, k.errores, e.motor.hecho].join("|");
   if (firma !== st.firma) {
@@ -110,11 +140,16 @@ function pintarCabecera(e) {
   ins.textContent = MODOS[e.modo];
   ins.title = { simulacion: "No se envía ningún correo real", prueba: "Los correos se envían, pero solo a tu propio email", real: "Los correos se envían a las empresas" }[e.modo];
 
+  const chip = $("#chip-cuenta");
+  chip.className = "chip-cuenta" + (e.cuenta.conectada ? "" : " desconectada");
+  chip.innerHTML = e.cuenta.conectada ? `<span class="punto"></span>${esc(e.cuenta.usuario)}` : `<span class="punto"></span>Conectar Gmail`;
+  chip.title = e.cuenta.conectada ? "Cuenta conectada. Pulsa para cambiarla." : "Conecta la cuenta desde la que se enviarán los correos";
+  if (st.vista === "config") { pintarCuentaConfig(); pintarPrevia(); }
+
   const n = e.kpis.no_leidas;
   $("#contador-no-leidas").hidden = !n;
   $("#contador-no-leidas").textContent = n;
-
-  $("#btn-iniciar").disabled = e.motor.ejecutando;
+  $("#btn-iniciar").hidden = e.motor.ejecutando;
   $("#btn-detener").hidden = !e.motor.ejecutando;
   document.title = (n ? `(${n}) ` : "") + "Busca Prácticas";
 
@@ -128,48 +163,136 @@ function pintarCabecera(e) {
   }
 }
 
+// ------------------------------------------------------------ panel
+
 function pintarPanel(e) {
   const k = e.kpis;
   const entrevistas = k.categorias.entrevista || 0;
-  $("#k-empresas").textContent = k.empresas;
-  $("#k-empresas-sub").textContent = `${k.con_email} con email · ${k.agencias} agencias`;
-  $("#k-enviados").textContent = k.enviados;
-  $("#k-enviados-sub").textContent = e.modo === "simulacion" ? `${k.pendientes_envio} pendientes` : `${e.enviados_hoy}/${e.limite_diario} hoy · ${k.pendientes_envio} pendientes`;
-  $("#k-respondidas").textContent = k.respondidas;
-  $("#k-respondidas-sub").textContent = `tasa de respuesta ${pct(k.respondidas, k.enviados)}`;
-  $("#k-entrevistas").textContent = entrevistas;
-  $("#k-entrevistas-sub").textContent = k.no_leidas ? `${k.no_leidas} respuesta(s) sin leer` : "";
 
-  // progreso
+  // Saludo y resumen
+  $("#hoy").textContent = new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+  const pila = nombrePila(e.nombre);
+  $("#saludo").textContent = pila ? `Hola, ${pila}` : "¡Hola!";
+  let resumen;
+  if (!k.empresas) {
+    resumen = `Todavía no has empezado. Pulsa <b>Iniciar búsqueda</b> y buscaré empresas y agencias en <b>${esc(e.ciudad)}</b> para enviarles tu candidatura.`;
+  } else {
+    resumen = `Has contactado <b>${k.enviados}</b> ${k.enviados === 1 ? "empresa" : "empresas"} y <b>${k.respondidas}</b> ${k.respondidas === 1 ? "te ha" : "te han"} respondido.`;
+    if (entrevistas) resumen += ` Tienes <b>${entrevistas} ${entrevistas === 1 ? "propuesta" : "propuestas"} de entrevista</b>. ¡Enhorabuena!`;
+    if (k.no_leidas) resumen += ` Hay <b>${k.no_leidas}</b> ${k.no_leidas === 1 ? "respuesta" : "respuestas"} sin leer.`;
+    else if (k.pendientes_envio) resumen += ` Quedan <b>${k.pendientes_envio}</b> por escribir.`;
+  }
+  $("#resumen").innerHTML = resumen;
+  const fuente = e.fuente === "osm" ? "OpenStreetMap" : "datos de ejemplo";
+  $("#hero-detalle").textContent = e.modo === "simulacion"
+    ? `Simulación: ${fuente} de ${e.ciudad}, sin enviar nada de verdad.`
+    : e.modo === "prueba"
+      ? `Prueba: hasta ${e.max_por_ejecucion} correos, todos a tu propio email.`
+      : `Real: hasta ${Math.min(e.max_por_ejecucion, e.limite_diario - e.enviados_hoy)} correos a empresas de ${e.ciudad}.`;
+
+  // Progreso
   const m = e.motor;
-  $("#fase").textContent = m.ejecutando ? m.fase + "…" : "Parado";
-  $("#fase-num").textContent = !m.total ? "" : m.ejecutando ? `${m.hecho} / ${m.total}` : `Última ejecución: ${m.hecho} de ${m.total} correos`;
+  $("#hero-progreso").hidden = !m.ejecutando;
+  $("#fase").textContent = m.fase + "…";
+  $("#fase-num").textContent = m.total ? `${m.hecho} de ${m.total}` : "";
   const barra = $("#barra-progreso");
   barra.classList.toggle("indeterminado", m.ejecutando && !m.total);
-  barra.style.width = m.ejecutando && m.total ? (m.hecho / m.total) * 100 + "%" : "0";
-  $("#fase-ayuda").hidden = m.ejecutando;
+  barra.style.width = m.total ? (m.hecho / m.total) * 100 + "%" : "0";
 
-  // embudo (una sola serie: longitud = cantidad)
+  // Embudo
   const etapas = [
-    ["Con email", k.con_email, ""],
-    ["Contactadas", k.enviados, pct(k.enviados, k.con_email)],
-    ["Respondieron", k.respondidas, pct(k.respondidas, k.enviados)],
-    ["Entrevistas", entrevistas, pct(entrevistas, k.enviados)],
+    { txt: "Encontradas", valor: k.empresas, sub: `${k.con_email} con email · ${k.agencias} agencias`, icono: ICONOS.buscar, color: "var(--tinta-2)" },
+    { txt: "Contactadas", valor: k.enviados, sub: e.modo === "simulacion" ? `${k.pendientes_envio} pendientes` : `${e.enviados_hoy}/${e.limite_diario} hoy · ${k.pendientes_envio} pendientes`, icono: ICONOS.enviar, color: "var(--serie-1)", conv: pct(k.enviados, k.con_email) },
+    { txt: "Respondieron", valor: k.respondidas, sub: `tasa de respuesta ${pct(k.respondidas, k.enviados)}`, icono: ICONOS.respuesta, color: "var(--serie-2)", conv: pct(k.respondidas, k.enviados) },
+    { txt: "Entrevistas", valor: entrevistas, sub: entrevistas ? "¡a prepararlas!" : "", icono: ICONOS.objetivo, color: "var(--bien)", conv: pct(entrevistas, k.respondidas) },
   ];
-  pintarBarras($("#embudo"), etapas.map(([t, v, p]) => ({ etiqueta: esc(t), valor: v, extra: p, titulo: `${t}: ${v}${p ? " (" + p + ")" : ""}` })), Math.max(k.con_email, 1));
+  $("#embudo").innerHTML = etapas.map((t, i) => `
+    ${i ? `<div class="conector" title="Conversión desde la etapa anterior">${ICONOS.flecha}<span>${t.conv}</span></div>` : ""}
+    <div class="etapa" style="--color-etapa:${t.color}">
+      <div class="etapa-icono">${t.icono}</div>
+      <div class="etapa-etiqueta">${t.txt}</div>
+      <div class="kpi-valor">${t.valor}</div>
+      <div class="etapa-sub">${esc(t.sub)}</div>
+    </div>`).join("");
 
-  const cats = Object.keys(CATEGORIAS).map((c) => ({ etiqueta: cat(c), valor: k.categorias[c] || 0, clase: "cat-" + c, titulo: `${CATEGORIAS[c].txt}: ${k.categorias[c] || 0}` }));
-  const maxCat = Math.max(1, ...cats.map((c) => c.valor));
-  if (!k.respondidas) $("#categorias").innerHTML = `<p class="vacio" style="grid-column:1/-1">Todavía no ha respondido nadie.</p>`;
-  else pintarBarras($("#categorias"), cats, maxCat);
+  // Tipo de respuesta
+  const cats = Object.keys(CATEGORIAS).map((c) => ({ c, v: k.categorias[c] || 0 }));
+  const maxCat = Math.max(1, ...cats.map((x) => x.v));
+  $("#categorias").innerHTML = !k.respondidas
+    ? `<p class="vacio" style="grid-column:1/-1">Todavía no ha respondido nadie.</p>`
+    : cats.map(({ c, v }) => `
+      <div class="barra-etiqueta">${cat(c)}</div>
+      <div class="barra-pista" title="${esc(CATEGORIAS[c].txt)}: ${v}"><div class="barra-relleno cat-${c}" style="width:${(v / maxCat) * 100}%"></div></div>
+      <div class="barra-valor">${v}</div>`).join("");
+
+  if (st.vista === "panel") pintarGrafico(e.diario);
 }
 
-function pintarBarras(cont, filas, max) {
-  cont.innerHTML = filas.map((f) => `
-    <div class="barra-etiqueta">${f.etiqueta}</div>
-    <div class="barra-pista" title="${esc(f.titulo)}"><div class="barra-relleno ${f.clase || ""}" style="width:${(f.valor / max) * 100}%"></div></div>
-    <div class="barra-valor">${f.valor}${f.extra ? `<span class="secundario">${esc(f.extra)}</span>` : ""}</div>`).join("");
+// ------------------------------------------------------------ gráfico diario
+
+function pintarGrafico(diario) {
+  const cont = $("#grafico-diario");
+  const W = cont.clientWidth, H = cont.clientHeight;
+  const firma = W + "|" + JSON.stringify(diario);
+  if (!W || firma === st.firmaGrafico) return;  // no repintar si nada cambió (mantiene el hover)
+  st.firmaGrafico = firma;
+
+  const m = { l: 28, r: 4, t: 10, b: 24 };
+  const pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const maxV = Math.max(0, ...diario.flatMap((d) => [d.enviados, d.respuestas]));
+  const paso = maxV <= 10 ? 2 : maxV <= 50 ? 10 : 50;
+  const tope = Math.max(4, Math.ceil(maxV / paso) * paso + (Math.ceil(maxV / paso) % 2 ? paso : 0));
+  const y = (v) => m.t + ph - (v / tope) * ph;
+  const n = diario.length, gw = pw / n;
+  const bw = Math.max(3, Math.min(14, (gw - 8) / 2 - 1));
+
+  const barra = (x, v, clase) => {
+    if (!v) return "";
+    const top = y(v), h = m.t + ph - top, r = Math.min(4, bw / 2, h);
+    return `<path class="${clase}" d="M${x},${m.t + ph}V${top + r}Q${x},${top} ${x + r},${top}H${x + bw - r}Q${x + bw},${top} ${x + bw},${top + r}V${m.t + ph}Z"/>`;
+  };
+  let svg = "";
+  for (const v of [0, tope / 2, tope]) {
+    svg += `<line class="${v ? "rejilla-l" : "base-l"}" x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}"/>`;
+    svg += `<text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+  }
+  diario.forEach((d, i) => {
+    const gx = m.l + i * gw, x0 = gx + (gw - (2 * bw + 2)) / 2;
+    svg += `<rect class="zona" data-i="${i}" x="${gx}" y="${m.t}" width="${gw}" height="${ph}"/>`;
+    svg += barra(x0, d.enviados, "b1") + barra(x0 + bw + 2, d.respuestas, "b2");
+    if ((n - 1 - i) % 2 === 0) {
+      const f = new Date(d.dia + "T12:00");
+      svg += `<text x="${gx + gw / 2}" y="${H - 6}" text-anchor="middle">${i === n - 1 ? "hoy" : f.getDate() + "/" + (f.getMonth() + 1)}</text>`;
+    }
+  });
+  const vacio = maxV === 0 ? `<div class="grafico-vacio">Aquí verás cada día cuántos correos envías y cuántas respuestas recibes.</div>` : "";
+  cont.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Correos enviados y respuestas por día en los últimos 14 días">${svg}</svg>${vacio}`;
+  $$(".zona", cont).forEach((z) => (z.style.pointerEvents = "all"));
+
+  $("#tabla-diario").innerHTML = `<table><tr><th>Día</th><th>Enviados</th><th>Respuestas</th></tr>${diario.map((d) => `<tr><td>${esc(d.dia)}</td><td>${d.enviados}</td><td>${d.respuestas}</td></tr>`).join("")}</table>`;
 }
+
+$("#grafico-diario").addEventListener("mousemove", (ev) => {
+  const z = ev.target.closest(".zona");
+  const tip = $("#tooltip");
+  $$(".zona.activa").forEach((x) => x !== z && x.classList.remove("activa"));
+  if (!z || !st.estado) { tip.hidden = true; return; }
+  z.classList.add("activa");
+  const d = st.estado.diario[Number(z.dataset.i)];
+  const f = new Date(d.dia + "T12:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+  tip.innerHTML = `<b>${esc(f)}</b>
+    <div class="t-fila"><i class="muestra s1"></i><span>Enviados</span><span>${d.enviados}</span></div>
+    <div class="t-fila"><i class="muestra s2"></i><span>Respuestas</span><span>${d.respuestas}</span></div>`;
+  tip.hidden = false;
+  const x = Math.min(ev.clientX + 14, window.innerWidth - tip.offsetWidth - 8);
+  tip.style.left = x + "px";
+  tip.style.top = ev.clientY + 14 + "px";
+});
+$("#grafico-diario").addEventListener("mouseleave", () => {
+  $("#tooltip").hidden = true;
+  $$(".zona.activa").forEach((x) => x.classList.remove("activa"));
+});
+window.addEventListener("resize", () => st.estado && st.vista === "panel" && pintarGrafico(st.estado.diario));
 
 async function cargarEventos() {
   const eventos = await api("eventos?desde=" + st.ultimoEvento).catch(() => []);
@@ -189,7 +312,7 @@ async function cargarEventos() {
 $("#btn-iniciar").addEventListener("click", async () => {
   const e = st.estado;
   if (e && e.modo === "real") {
-    const ok = confirm(`MODO REAL: se enviarán correos de verdad a empresas y agencias (hasta ${e.limite_diario - e.enviados_hoy} hoy).\n\n¿Has revisado tu plantilla y tu CV?`);
+    const ok = confirm(`MODO REAL: se enviarán correos de verdad a empresas y agencias (hasta ${e.limite_diario - e.enviados_hoy} hoy).\n\n¿Has revisado tu mensaje y tu CV?`);
     if (!ok) return;
   }
   try {
@@ -200,6 +323,71 @@ $("#btn-iniciar").addEventListener("click", async () => {
   }
 });
 $("#btn-detener").addEventListener("click", () => api("detener", {}).catch((err) => aviso(err.message, "critico")));
+
+// ------------------------------------------------------------ cuenta de Gmail
+
+function abrirCuenta() {
+  const f = $("#form-cuenta");
+  f.usuario.value = (st.estado && st.estado.cuenta.usuario) || "";
+  f.contrasena.value = "";
+  f.contrasena.type = "password";
+  $("#ver-clave").textContent = "Mostrar";
+  $("#cuenta-resultado").hidden = true;
+  $("#cuenta-enviar").disabled = false;
+  $("#cuenta-nota-sim").hidden = !(st.estado && st.estado.modo === "simulacion");
+  $("#dialogo-cuenta").showModal();
+}
+$("#chip-cuenta").addEventListener("click", abrirCuenta);
+$("#btn-conectar").addEventListener("click", abrirCuenta);
+$("#ver-clave").addEventListener("click", () => {
+  const c = $("#form-cuenta").contrasena;
+  c.type = c.type === "password" ? "text" : "password";
+  $("#ver-clave").textContent = c.type === "password" ? "Mostrar" : "Ocultar";
+});
+$("#cuenta-luego").addEventListener("click", () => {
+  try { sessionStorage.setItem("cuenta-omitida", "1"); } catch {}
+  $("#dialogo-cuenta").close();
+});
+$("#form-cuenta").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = ev.target;
+  const res = $("#cuenta-resultado");
+  res.hidden = false;
+  res.className = "resultado cargando";
+  res.textContent = "Probando la conexión con Gmail (envío y lectura)…";
+  $("#cuenta-enviar").disabled = true;
+  try {
+    const cuenta = await api("cuenta", { usuario: f.usuario.value, contrasena: f.contrasena.value });
+    res.className = "resultado ok";
+    res.textContent = `✓ Conectado como ${cuenta.usuario}. Ya se puede enviar y leer correo.`;
+    f.contrasena.value = "";
+    await refrescar();
+    if (st.vista === "config" && !st.sucio) cargarConfig();
+    pintarCuentaConfig();
+    setTimeout(() => $("#dialogo-cuenta").close(), 1400);
+  } catch (err) {
+    res.className = "resultado error";
+    res.textContent = err.message;
+    $("#cuenta-enviar").disabled = false;
+  }
+});
+$("#btn-desconectar").addEventListener("click", async () => {
+  if (!confirm("¿Desconectar la cuenta? Se borrará la contraseña de aplicación guardada en tu PC.")) return;
+  await api("cuenta/desconectar", {}).catch((err) => aviso(err.message, "critico"));
+  await refrescar();
+  pintarCuentaConfig();
+});
+
+function pintarCuentaConfig() {
+  const c = st.estado && st.estado.cuenta;
+  if (!c) return;
+  $("#cuenta-estado").innerHTML = c.conectada
+    ? `Conectada: <b>${esc(c.usuario)}</b>. Los correos saldrán desde esta cuenta y aquí se leerán las respuestas.`
+    : "No hay ninguna cuenta conectada. Hace falta para los modos «Prueba real» y «Real».";
+  $("#btn-conectar").textContent = c.conectada ? "Cambiar cuenta" : "Conectar Gmail";
+  $("#btn-conectar").className = c.conectada ? "btn" : "btn primario";
+  $("#btn-desconectar").hidden = !c.conectada;
+}
 
 // ------------------------------------------------------------ empresas
 
@@ -218,12 +406,11 @@ function pintarEmpresas() {
 
   $("#empresas-vacio").hidden = st.empresas.length > 0;
   const tbody = $("#tabla-empresas");
-  // No repintar mientras se escribe un email en la tabla
   if (tbody.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
   tbody.innerHTML = filas.map((e) => `
     <tr data-id="${e.id}">
-      <td><span class="nombre" data-ver="${e.id}">${esc(e.nombre)}</span>${e.web ? ` <a href="${esc(e.web)}" target="_blank" rel="noopener" class="pequeno">web</a>` : ""}</td>
-      <td>${e.tipo === "agencia" ? "Agencia" : "Empresa"}</td>
+      <td><div class="celda-nombre">${avatar(e.nombre, e.ultima_categoria)}<span><span class="nombre" data-ver="${e.id}">${esc(e.nombre)}</span>${e.web ? ` <a href="${esc(e.web)}" target="_blank" rel="noopener" class="pequeno">web</a>` : ""}</span></div></td>
+      <td><span class="tipo-chip">${e.tipo === "agencia" ? "Agencia" : "Empresa"}</span></td>
       <td class="secundario">${esc(e.sector)}</td>
       <td>${e.email ? esc(e.email) : `<input class="email-input" data-email="${e.id}" type="email" placeholder="añadir email y pulsar Enter">`}</td>
       <td>${estadoHtml(e.estado)}${e.ultima_categoria ? " · " + cat(e.ultima_categoria) : ""}</td>
@@ -260,7 +447,7 @@ $("#tabla-empresas").addEventListener("keydown", async (ev) => {
 $("#btn-nueva-empresa").addEventListener("click", () => {
   $("#dialogo-titulo").textContent = "Añadir empresa o agencia";
   $("#dialogo-cuerpo").innerHTML = `
-    <form id="form-empresa" style="margin-top:12px">
+    <form id="form-empresa" style="margin-top:14px">
       <label>Nombre<input name="nombre" required></label>
       <label>Email<input name="email" type="email"></label>
       <label>Tipo<select name="tipo"><option value="empresa">Empresa</option><option value="agencia">Agencia de empleo / ETT</option></select></label>
@@ -288,7 +475,7 @@ async function abrirEmpresa(id) {
   $("#dialogo-titulo").textContent = e.nombre;
   const hilo = [
     ...d.correos.map((c) => ({ ts: c.enviado_en, html: `<div class="meta"><b>Tú</b> → ${esc(c.destinatario)} · ${esc(fecha(c.enviado_en))} · <i>${esc(c.asunto)}</i></div><div class="cuerpo-msg">${esc(c.cuerpo)}</div>` })),
-    ...d.respuestas.map((r) => ({ ts: r.recibido_en, html: `<div class="meta"><b>${esc(r.remitente)}</b> · ${esc(fecha(r.recibido_en))} · ${cat(r.categoria)} ${r.simulada ? '<span class="etiqueta-sim">simulada</span>' : ""}</div><div class="cuerpo-msg">${esc(r.cuerpo)}</div>` })),
+    ...d.respuestas.map((r) => ({ ts: r.recibido_en, html: `<div class="meta"><b>${esc(r.remitente)}</b> · ${esc(fecha(r.recibido_en))} · ${cat(r.categoria, true)} ${r.simulada ? '<span class="etiqueta-sim">simulada</span>' : ""}</div><div class="cuerpo-msg">${esc(r.cuerpo)}</div>` })),
   ].sort((a, b) => a.ts.localeCompare(b.ts));
   $("#dialogo-cuerpo").innerHTML = `
     <p class="meta">${e.tipo === "agencia" ? "Agencia" : "Empresa"} · ${esc(e.sector)} · ${estadoHtml(e.estado)}<br>
@@ -308,11 +495,14 @@ async function cargarRespuestas(soloPanel = false) {
 }
 
 function pintarUltimas() {
-  const ul = $("#ultimas-respuestas");
   const ultimas = st.respuestas.slice(0, 6);
-  ul.innerHTML = ultimas.length
-    ? ultimas.map((r) => `<li data-abrir="${r.id}"><span><span class="nombre">${esc(r.empresa || r.remitente)}</span><br><span class="secundario pequeno">${esc(fecha(r.recibido_en))}</span></span>${cat(r.categoria)}</li>`).join("")
-    : '<li class="vacio" style="cursor:default">Aún no hay respuestas.</li>';
+  $("#ultimas-respuestas").innerHTML = ultimas.length
+    ? ultimas.map((r) => `<li data-abrir="${r.id}">
+        ${avatar(r.empresa || r.remitente, r.categoria)}
+        <div class="texto"><div class="fila-entre"><span class="nombre">${esc(r.empresa || r.remitente)}</span><span class="pequeno secundario">${esc(fecha(r.recibido_en))}</span></div>
+        <div class="extracto">${esc(r.cuerpo.replace(/\s+/g, " "))}</div></div>
+        ${cat(r.categoria, true)}</li>`).join("")
+    : '<li class="vacio" style="cursor:default;display:block">Aún no hay respuestas.</li>';
 }
 $("#ultimas-respuestas").addEventListener("click", (ev) => {
   const li = ev.target.closest("[data-abrir]");
@@ -331,9 +521,12 @@ function pintarRespuestas() {
   $("#respuestas-vacio").hidden = lista.length > 0;
   $("#lista-respuestas").innerHTML = lista.map((r) => `
     <li data-id="${r.id}" class="${r.leida ? "" : "no-leida"} ${r.id === st.respuestaSel ? "seleccionada" : ""}">
-      <div class="cabecera-msg"><span class="nombre">${esc(r.empresa || r.remitente)}</span><span class="secundario pequeno">${esc(fecha(r.recibido_en))}</span></div>
-      <div class="extracto">${esc(r.cuerpo.replace(/\s+/g, " "))}</div>
-      <div>${cat(r.categoria)}</div>
+      ${avatar(r.empresa || r.remitente, r.categoria)}
+      <div class="texto">
+        <div class="cabecera-msg"><span class="nombre">${esc(r.empresa || r.remitente)}</span><span class="secundario pequeno">${esc(fecha(r.recibido_en))}</span></div>
+        <div class="extracto">${esc(r.cuerpo.replace(/\s+/g, " "))}</div>
+        ${cat(r.categoria, true)}
+      </div>
     </li>`).join("");
 }
 $("#filtro-categorias").addEventListener("click", (ev) => {
@@ -358,21 +551,26 @@ async function seleccionarRespuesta(id) {
   let original = null;
   if (r.empresa_id) {
     const d = await api("empresas/" + r.empresa_id).catch(() => null);
-    original = d && d.correos.find((c) => c.id === r.correo_id) || (d && d.correos[0]);
+    original = d && (d.correos.find((c) => c.id === r.correo_id) || d.correos[0]);
   }
-  const responder = `mailto:${encodeURIComponent((r.remitente.match(/<([^>]+)>/) || [, r.remitente])[1])}?subject=${encodeURIComponent(r.asunto.startsWith("Re:") ? r.asunto : "Re: " + r.asunto)}`;
+  const direccion = (r.remitente.match(/<([^>]+)>/) || [, r.remitente])[1];
+  const responder = `mailto:${encodeURIComponent(direccion)}?subject=${encodeURIComponent(r.asunto.startsWith("Re:") ? r.asunto : "Re: " + r.asunto)}`;
   $("#detalle-respuesta").innerHTML = `
     <div class="cabecera-msg">
-      <div><h2 style="margin:0">${esc(r.asunto)}</h2>
-        <div class="meta">De <b>${esc(r.remitente)}</b> · ${esc(fecha(r.recibido_en))} ${r.simulada ? '<span class="etiqueta-sim">respuesta simulada</span>' : ""}</div></div>
+      <div class="remitente">${avatar(r.empresa || r.remitente, r.categoria, "grande")}
+        <div><div><b>${esc(r.empresa || r.remitente)}</b> ${r.simulada ? '<span class="etiqueta-sim">respuesta simulada</span>' : ""}</div>
+        <div class="meta">${esc(r.remitente)} · ${esc(fecha(r.recibido_en))}</div></div></div>
       <div class="fila" style="margin:0">
-        <select id="cambiar-cat" title="Corregir la clasificación">${Object.entries(CATEGORIAS).map(([c, k]) => `<option value="${c}" ${c === r.categoria ? "selected" : ""}>${k.icono} ${k.txt}</option>`).join("")}</select>
+        <select id="cambiar-cat" title="Corregir la clasificación" style="width:auto">${Object.entries(CATEGORIAS).map(([c, k]) => `<option value="${c}" ${c === r.categoria ? "selected" : ""}>${k.icono} ${k.txt}</option>`).join("")}</select>
         ${r.simulada ? "" : `<a class="btn primario" href="${responder}">Responder</a>`}
-        ${r.empresa_id ? `<button class="btn" data-ver-empresa="${r.empresa_id}">Ver empresa</button>` : ""}
-        <button class="btn" id="marcar-no-leida">Marcar no leída</button>
       </div>
     </div>
+    <h2 style="margin:18px 0 0">${esc(r.asunto)}</h2>
     <div class="cuerpo-msg">${esc(r.cuerpo)}</div>
+    <div class="fila">
+      ${r.empresa_id ? `<button class="btn" data-ver-empresa="${r.empresa_id}">Ver empresa</button>` : ""}
+      <button class="btn" id="marcar-no-leida">Marcar como no leída</button>
+    </div>
     ${original ? `<details class="original"><summary>Tu correo original (${esc(fecha(original.enviado_en))})</summary><pre>${esc(original.cuerpo)}</pre></details>` : ""}`;
   $("#cambiar-cat").addEventListener("change", async (ev) => {
     await api(`respuestas/${id}/categoria`, { categoria: ev.target.value });
@@ -410,7 +608,9 @@ async function cargarConfig() {
     else el.value = v ?? "";
   }
   $("#modo-borrar").textContent = MODOS[st.config.modo];
-  $("#estado-guardado").textContent = "";
+  marcarSucio(false);
+  pintarCuentaConfig();
+  pintarPrevia();
 }
 
 function leerFormulario() {
@@ -428,6 +628,16 @@ function leerFormulario() {
   return cfg;
 }
 
+function marcarSucio(sucio) {
+  st.sucio = sucio;
+  const e = $("#estado-guardado");
+  e.className = "pequeno" + (sucio ? " pendiente" : "");
+  e.textContent = sucio ? "Cambios sin guardar" : "";
+}
+$("#form-config").addEventListener("input", () => { marcarSucio(true); pintarPrevia(); });
+$("#form-config").addEventListener("change", () => { marcarSucio(true); pintarPrevia(); });
+window.addEventListener("beforeunload", (ev) => { if (st.sucio) ev.preventDefault(); });
+
 $("#form-config").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const cfg = leerFormulario();
@@ -436,7 +646,10 @@ $("#form-config").addEventListener("submit", async (ev) => {
       !confirm("Vas a activar el MODO REAL: al pulsar Iniciar se enviarán correos de verdad a las empresas.\n\nTe recomiendo probar antes con «Prueba real». ¿Continuar?")) return;
   try {
     st.config = await api("config", cfg);
-    $("#estado-guardado").textContent = "Guardado ✓";
+    marcarSucio(false);
+    const e = $("#estado-guardado");
+    e.className = "pequeno ok";
+    e.textContent = "✓ Guardado";
     $("#modo-borrar").textContent = MODOS[st.config.modo];
     refrescar();
   } catch (err) {
@@ -444,12 +657,76 @@ $("#form-config").addEventListener("submit", async (ev) => {
   }
 });
 
-$$("[data-previa]").forEach((b) => b.addEventListener("click", async () => {
-  const p = await api("vista-previa", { tipo: b.dataset.previa, config: leerFormulario() });
-  const pre = $("#vista-previa");
-  pre.hidden = false;
-  pre.textContent = `Asunto: ${p.asunto}\n\n${p.cuerpo}`;
-}));
+// --- editor del mensaje
+
+function textareaActiva() {
+  return $(`textarea[data-tipo="${st.plantilla}"]`);
+}
+
+$("#selector-plantilla").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-plantilla]");
+  if (!b) return;
+  st.plantilla = b.dataset.plantilla;
+  $$("#selector-plantilla button").forEach((x) => x.classList.toggle("activo", x === b));
+  $$("textarea[data-tipo]").forEach((t) => (t.hidden = t.dataset.tipo !== st.plantilla));
+  $("#etq-mensaje").textContent = st.plantilla === "agencia" ? "Mensaje para agencias" : "Mensaje para empresas";
+  st.ultimoCampo = textareaActiva();
+  pintarPrevia();
+});
+
+$$("[data-editable]").forEach((el) => el.addEventListener("focus", () => (st.ultimoCampo = el)));
+
+$(".insertar").addEventListener("mousedown", (ev) => ev.preventDefault());  // no robar el foco al campo
+$(".insertar").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-var]");
+  if (!b) return;
+  const campo = st.ultimoCampo && !st.ultimoCampo.hidden ? st.ultimoCampo : textareaActiva();
+  const texto = `{${b.dataset.var}}`;
+  const ini = campo.selectionStart ?? campo.value.length, fin = campo.selectionEnd ?? ini;
+  campo.focus();
+  campo.setRangeText(texto, ini, fin, "end");
+  campo.dispatchEvent(new Event("input", { bubbles: true }));
+});
+
+$("#btn-restaurar").addEventListener("click", async () => {
+  if (!confirm(`¿Restaurar el asunto y el mensaje ${st.plantilla === "agencia" ? "para agencias" : "para empresas"} originales? Perderás tus cambios en ese texto.`)) return;
+  const def = await api("config/defecto");
+  $('[name="envio.asunto"]').value = def.envio.asunto;
+  textareaActiva().value = st.plantilla === "agencia" ? def.envio.plantilla_agencia : def.envio.plantilla;
+  marcarSucio(true);
+  pintarPrevia();
+});
+
+function rellenarConMarcas(texto, valores) {
+  // Igual que el servidor, pero resaltando lo que se sustituye
+  return texto.split(/(\{\w+\})/).map((trozo) => {
+    const m = trozo.match(/^\{(\w+)\}$/);
+    if (!m) return esc(trozo);
+    const clave = m[1];
+    if (!(clave in valores)) return `<mark class="desconocida" title="Variable desconocida: no se sustituirá">${esc(trozo)}</mark>`;
+    if (!String(valores[clave]).trim()) return `<mark class="vacia" title="Rellénalo en «Tu perfil»">falta: ${esc(NOMBRES_VAR[clave] || clave)}</mark>`;
+    return `<mark>${esc(valores[clave])}</mark>`;
+  }).join("");
+}
+
+function pintarPrevia() {
+  if (!st.config) return;
+  const cfg = leerFormulario();
+  const ej = EJEMPLO[st.plantilla];
+  const valores = { ...cfg.perfil, empresa: ej.empresa, sector: ej.sector, ciudad: cfg.busqueda.ciudad };
+  delete valores.cv;
+  const plantilla = st.plantilla === "agencia" && cfg.envio.plantilla_agencia.trim() ? cfg.envio.plantilla_agencia : cfg.envio.plantilla;
+  const cuenta = st.estado && st.estado.cuenta.usuario;
+  $("#previa-quien").textContent = st.plantilla === "agencia" ? "una agencia" : "una empresa";
+  $("#previa-avatar").textContent = iniciales(cfg.perfil.nombre);
+  $("#previa-de").textContent = `${cfg.perfil.nombre} <${cuenta || cfg.perfil.email}>`;
+  $("#previa-para").textContent = `${ej.empresa} <${ej.email}>`;
+  $("#previa-asunto").innerHTML = rellenarConMarcas(cfg.envio.asunto, valores);
+  $("#previa-cuerpo").innerHTML = rellenarConMarcas(plantilla.replace(/\n{3,}/g, "\n\n").trimEnd(), valores);
+  const adj = $("#previa-adjunto");
+  adj.hidden = !cfg.envio.adjuntar_cv;
+  $("span", adj).textContent = (cfg.perfil.cv || "cv.pdf").split(/[\\/]/).pop();
+}
 
 $("#btn-borrar").addEventListener("click", async () => {
   const modo = st.config.modo;
@@ -463,7 +740,7 @@ $("#btn-borrar").addEventListener("click", async () => {
     st.ultimoEvento = 0;
     $("#registro").innerHTML = "";
     st.firma = "";
-    aviso("Datos borrados.");
+    aviso("Datos borrados.", "bien");
     refrescar();
   } catch (err) {
     aviso(err.message, "critico");

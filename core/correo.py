@@ -43,11 +43,8 @@ def problemas_envio(cfg):
     if cfg["modo"] == "simulacion":
         return []
     p = []
-    sc = cfg["servidor_correo"]
-    if not sc["usuario"]:
-        p.append("Falta el usuario del correo (Configuración → Servidor de correo).")
-    if not config.contrasena_correo():
-        p.append("Falta la contraseña de aplicación en secretos.json.")
+    if not config.cuenta()["conectada"]:
+        p.append("Conecta tu cuenta de Gmail (botón «Conectar Gmail» arriba a la derecha).")
     if cfg["modo"] == "prueba" and not cfg["perfil"]["email"]:
         p.append("Falta tu email en el perfil (en modo prueba los correos te llegan a ti).")
     if cfg["envio"]["adjuntar_cv"] and not os.path.exists(config.ruta(cfg["perfil"]["cv"])):
@@ -120,20 +117,55 @@ def _guardar_eml(asunto, cuerpo, destinatario, message_id, cfg):
         f.write(msg.as_bytes())
 
 
-def _enviar_smtp(cfg, destinatario, asunto, cuerpo, message_id):
-    sc = cfg["servidor_correo"]
-    msg = _mensaje(cfg, destinatario, asunto, cuerpo, message_id)
+def _smtp(sc, usuario, contrasena):
+    """Abre una sesión SMTP ya autenticada."""
     ctx = ssl.create_default_context()
     puerto = int(sc["smtp_port"])
     if puerto == 465:
-        with smtplib.SMTP_SSL(sc["smtp_host"], puerto, context=ctx, timeout=30) as s:
-            s.login(sc["usuario"], config.contrasena_correo())
-            s.send_message(msg)
+        s = smtplib.SMTP_SSL(sc["smtp_host"], puerto, context=ctx, timeout=30)
     else:
-        with smtplib.SMTP(sc["smtp_host"], puerto, timeout=30) as s:
-            s.starttls(context=ctx)
-            s.login(sc["usuario"], config.contrasena_correo())
-            s.send_message(msg)
+        s = smtplib.SMTP(sc["smtp_host"], puerto, timeout=30)
+        s.starttls(context=ctx)
+    try:
+        s.login(usuario, contrasena)
+    except Exception:
+        s.close()
+        raise
+    return s
+
+
+def _enviar_smtp(cfg, destinatario, asunto, cuerpo, message_id):
+    sc = cfg["servidor_correo"]
+    msg = _mensaje(cfg, destinatario, asunto, cuerpo, message_id)
+    with _smtp(sc, sc["usuario"], config.contrasena_correo()) as s:
+        s.send_message(msg)
+
+
+def probar_conexion(cfg, usuario, contrasena):
+    """Comprueba que se puede enviar (SMTP) y leer (IMAP). Lanza ValueError con una explicación clara."""
+    sc = cfg["servidor_correo"]
+    try:
+        with _smtp(sc, usuario, contrasena):
+            pass
+    except smtplib.SMTPAuthenticationError:
+        raise ValueError("Gmail ha rechazado el usuario o la contraseña. Recuerda que hace falta una "
+                         "contraseña de aplicación (16 letras), no tu contraseña normal de Google.")
+    except OSError as ex:
+        raise ValueError(f"No se pudo conectar con {sc['smtp_host']}. ¿Tienes conexión a internet? ({ex})")
+    try:
+        m = imaplib.IMAP4_SSL(sc["imap_host"], int(sc["imap_port"]))
+        try:
+            m.login(usuario, contrasena)
+        finally:
+            try:
+                m.logout()
+            except Exception:
+                pass
+    except imaplib.IMAP4.error:
+        raise ValueError("El envío funciona, pero no se puede leer la bandeja (IMAP). "
+                         "Actívalo en Gmail → Ajustes → Reenvío y correo POP/IMAP.")
+    except OSError as ex:
+        raise ValueError(f"No se pudo conectar con {sc['imap_host']} ({ex})")
 
 
 # ---------------------------------------------------------------- clasificación

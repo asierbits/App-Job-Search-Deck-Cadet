@@ -66,7 +66,12 @@ def entregar_pendientes(cfg):
                JOIN empresas e ON e.id = p.empresa_id
                JOIN correos c ON c.id = p.correo_id
                WHERE p.llega_en <= ?""", (db.ahora(),)))
+        entregadas = []
         for p in pendientes:
+            # Reclamar la fila primero: si otro proceso ya la entregó, no duplicar
+            if con.execute("DELETE FROM respuestas_programadas WHERE id = ?", (p["id"],)).rowcount != 1:
+                continue
+            entregadas.append(p)
             plantilla_asunto, plantilla_cuerpo = random.choice(TEXTOS[p["tipo"]])
             valores = {"nombre": cfg["perfil"]["nombre"], "empresa": p["empresa"], "asunto": p["asunto"]}
             asunto = plantilla_asunto.format(**valores)
@@ -78,7 +83,6 @@ def entregar_pendientes(cfg):
                 (p["empresa_id"], p["correo_id"], f"{p['empresa']} <{p['email']}>", asunto, cuerpo,
                  clasificar(asunto, cuerpo), db.ahora()))
             con.execute("UPDATE empresas SET estado = 'respondida' WHERE id = ?", (p["empresa_id"],))
-            con.execute("DELETE FROM respuestas_programadas WHERE id = ?", (p["id"],))
-    for p in pendientes:
+    for p in entregadas:
         db.evento(f"Respuesta (simulada) de {p['empresa']}", "ok", "simulacion")
-    return len(pendientes)
+    return len(entregadas)
