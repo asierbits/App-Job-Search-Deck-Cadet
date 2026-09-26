@@ -6,6 +6,7 @@
 
 Además, un hilo revisa las respuestas periódicamente.
 """
+import json
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +15,13 @@ from datetime import date, datetime, timedelta
 from . import busqueda, config, correo, db, maritimo, simulador, webemail
 
 RASTREOS_A_LA_VEZ = 6
+HORAS_ENTRE_LECTURAS = 24  # las fuentes de navieras se vuelven a leer como mucho una vez al día
+
+
+def firma_busqueda(b):
+    """Resumen de la configuración de búsqueda: si cambia (otra fuente, otros directorios…), se releen las fuentes."""
+    claves = ("fuente", "usar_wikidata", "directorios", "ciudades", "radio_km", "tipos", "palabras_clave", "max_resultados")
+    return json.dumps({k: b.get(k) for k in claves}, sort_keys=True, ensure_ascii=False)
 
 
 class Motor:
@@ -41,8 +49,8 @@ class Motor:
             self._hilo.start()
             return True
 
-    def buscar(self):
-        return self._lanzar("buscar", self._buscar)
+    def buscar(self, forzar=False):
+        return self._lanzar("buscar", lambda cfg, modo: self._buscar(cfg, modo, forzar))
 
     def enviar(self):
         return self._lanzar("enviar", self._enviar)
@@ -70,8 +78,21 @@ class Motor:
 
     # ------------------------------------------------------------ paso 1: buscar y rastrear
 
-    def _buscar(self, cfg, modo):
+    def _buscar(self, cfg, modo, forzar=False):
         b = cfg["busqueda"]
+        # Las fuentes (Wikidata, directorios…) cambian poco: se leen como mucho una vez al día, salvo que
+        # cambies la configuración de la búsqueda o lo fuerces. Lo ya guardado y analizado nunca se repite.
+        firma = firma_busqueda(b)
+        leidas = db.leer_meta("fuentes_leidas", modo)
+        misma = db.leer_meta("fuentes_firma", modo) == firma
+        if not forzar and misma and leidas and \
+                datetime.now() - datetime.fromisoformat(leidas) < timedelta(hours=HORAS_ENTRE_LECTURAS):
+            horas = (datetime.now() - datetime.fromisoformat(leidas)).total_seconds() / 3600
+            hace = f"{int(horas * 60)} min" if horas < 1 else f"{horas:.0f} h"
+            db.evento(f"Las fuentes se leyeron hace {hace}: no se vuelven a leer hasta dentro de "
+                      f"{HORAS_ENTRE_LECTURAS} h. Se analizan solo las navieras pendientes.", "info", modo)
+            self._rastrear_webs(cfg, modo)
+            return
         self._fase("Buscando navieras")
         if b["fuente"] == "maritimo":
             n = len([d for d in b["directorios"] if d.strip()]) + (1 if b["usar_wikidata"] else 0)
@@ -87,18 +108,25 @@ class Motor:
             al_avisar=lambda nivel, msg: db.evento(msg, nivel, modo),
             cancelado=self._detener.is_set)
         nuevas, repetidas = busqueda.guardar(resultados)
-        con_email = sum(1 for r in resultados if r["email"])
-        db.evento(f"Encontradas {len(resultados)} ({con_email} con email): {nuevas} nuevas, "
-                  f"{repetidas} ya estaban.", "ok", modo)
         if self._detener.is_set():
             db.evento("Detenido por el usuario.", "aviso", modo)
             return
+        db.guardar_meta("fuentes_leidas", db.ahora(), modo)
+        db.guardar_meta("fuentes_firma", firma, modo)
+        if nuevas:
+            db.evento(f"{nuevas} navieras nuevas" + (f" (las {repetidas} que ya tenías no se repiten)" if repetidas else "")
+                      + ".", "ok", modo)
+        else:
+            db.evento(f"No hay navieras nuevas: las {repetidas} ya estaban guardadas y no se vuelven a analizar.",
+                      "ok", modo)
         self._rastrear_webs(cfg, modo)
 
     def _rastrear_webs(self, cfg, modo):
         b = cfg["busqueda"]
         if b["buscar_email_web"]:
-            self._buscar_emails_web(modo, int(b["max_webs_por_ejecucion"]))
+            if not self._buscar_emails_web(modo, int(b["max_webs_por_ejecucion"])):
+                db.evento("Todas las navieras guardadas ya están analizadas: no hay nada nuevo que rastrear.", "ok", modo)
+                return
         if self._detener.is_set():
             db.evento("Detenido por el usuario. Lo que falte se rastreará la próxima vez.", "aviso", modo)
         else:
@@ -113,10 +141,10 @@ class Motor:
             quedan = con.execute("SELECT count(*) FROM empresas WHERE estado IN ('sin_email', 'nueva') "
                                  "AND web <> '' AND email_buscado = ''").fetchone()[0] - len(empresas)
         if not empresas:
-            return
-        db.evento(f"Rastreando a fondo {len(empresas)} web(s)" + (f" (quedan {quedan} para la próxima vez)" if quedan else "")
+            return 0
+        db.evento(f"Rastreando a fondo {len(empresas)} web(s) nuevas o pendientes" + (f" (quedan {quedan} para la próxima vez)" if quedan else "")
                   + "…", "info", modo)
-        mejorados = cadetes = portales = hechas = reutilizadas = 0
+        mejorados = cadetes = portales = hechas = reutilizadas = con_avisos = 0
         self._fase("Rastreando webs", 0, len(empresas))
 
         def uno(e):
@@ -143,10 +171,13 @@ class Motor:
                     cadetes += bool(r.get("cadetes"))
                     portales += bool(r.get("web_empleo"))
                     reutilizadas += bool(r.get("reutilizado"))
+                    con_avisos += bool(r.get("avisos"))
         db.evento(f"Rastreo: {mejorados} emails nuevos o mejores, {cadetes} webs que hablan de cadetes, "
                   f"{portales} páginas de empleo/tripulación"
+                  + (f", ⚠ {con_avisos} con avisos (cobro, Ucrania o Mar Negro) para revisar" if con_avisos else "")
                   + (f" ({reutilizadas} webs ya rastreadas antes, reutilizadas al instante)" if reutilizadas else "")
                   + ".", "ok", modo)
+        return len(empresas)
 
     # ------------------------------------------------------------ paso 2: enviar a las seleccionadas
 
@@ -262,11 +293,14 @@ def _rastreo_guardado(web):
     dom = webemail.dominio(web if "://" in web else "https://" + web)
     limite = (datetime.now() - timedelta(days=DIAS_VALIDEZ_RASTREO)).isoformat(timespec="seconds")
     with db.conectar_rastreos() as con:
-        f = con.execute("SELECT * FROM rastreos WHERE dominio = ? AND fecha >= ?", (dom, limite)).fetchone()
+        # Los rastreos antiguos (sin términos de cadetes ni avisos) no sirven: se vuelven a hacer
+        f = con.execute("SELECT * FROM rastreos WHERE dominio = ? AND fecha >= ? AND menciones IS NOT NULL",
+                        (dom, limite)).fetchone()
     if not f:
         return None
     return {"email": f["email"], "email_fuente": f["email_fuente"], "web_empleo": f["web_empleo"],
             "cadetes": bool(f["cadetes"]), "nombre": f["nombre"] or "", "bloqueada": bool(f["bloqueada"]),
+            "menciones": [m for m in f["menciones"].split("|") if m], "avisos": json.loads(f["avisos"] or "[]"),
             "reutilizado": True}
 
 
@@ -274,9 +308,10 @@ def _guardar_rastreo(web, r):
     dom = webemail.dominio(web if "://" in web else "https://" + web)
     with db.conectar_rastreos() as con:
         con.execute("INSERT OR REPLACE INTO rastreos(dominio, email, email_fuente, web_empleo, nombre, cadetes, "
-                    "bloqueada, fecha) VALUES (?,?,?,?,?,?,?,?)",
+                    "bloqueada, fecha, menciones, avisos) VALUES (?,?,?,?,?,?,?,?,?,?)",
                     (dom, r["email"], r["email_fuente"], r["web_empleo"], r["nombre"], int(r["cadetes"]),
-                     int(r["bloqueada"]), db.ahora()))
+                     int(r["bloqueada"]), db.ahora(), "|".join(r.get("menciones") or []),
+                     json.dumps(r.get("avisos") or [], ensure_ascii=False)))
 
 
 def rastrear_empresa(e, modo=None, reutilizar=True):
@@ -290,7 +325,12 @@ def rastrear_empresa(e, modo=None, reutilizar=True):
             if r.get("leida") or r.get("bloqueada"):  # si la web no respondió, no se recuerda: se reintentará
                 _guardar_rastreo(e["web"], r)
         except Exception:
-            r = {"email": None, "email_fuente": None, "web_empleo": None, "cadetes": False, "nombre": "", "bloqueada": False}
+            r = {"email": None, "email_fuente": None, "web_empleo": None, "cadetes": False, "nombre": "",
+                 "bloqueada": False, "menciones": [], "avisos": []}
+    avisos = list(r.get("avisos") or [])
+    if (e.get("pais") == "ua" or webemail.dominio("https://" + e["web"].split("://")[-1]).endswith(".ua")) \
+            and not any(a["tipo"] == "ucrania" for a in avisos):
+        avisos.insert(0, {"tipo": "ucrania", "texto": "Empresa registrada en Ucrania (país o dominio .ua).", "url": e["web"]})
     nuevo = None
     if r["email"] and e["estado"] in ("nueva", "sin_email") and r["email"] != e["email"]:
         if not e["email"] or webemail.puntuacion(r["email"], e["web"]) > webemail.puntuacion(e["email"], e["web"]):
@@ -300,12 +340,13 @@ def rastrear_empresa(e, modo=None, reutilizar=True):
         nombre = r["nombre"]  # el nombre salió del dominio: mejor el que da su propia web
     with db.conectar(modo) as con:
         con.execute(
-            """UPDATE empresas SET email_buscado=?, nombre=?, cadetes=?, web_bloqueada=?,
+            """UPDATE empresas SET email_buscado=?, nombre=?, cadetes=?, web_bloqueada=?, menciones=?, avisos=?,
                    web_empleo=CASE WHEN ? <> '' THEN ? ELSE web_empleo END,
                    email=COALESCE(?, email), email_fuente=CASE WHEN ? IS NOT NULL THEN ? ELSE email_fuente END,
                    estado=CASE WHEN ? IS NOT NULL AND estado='sin_email' THEN 'nueva' ELSE estado END
                WHERE id=?""",
             (db.ahora(), nombre, int(r["cadetes"]), int(r["bloqueada"]),
+             "|".join(r.get("menciones") or []), json.dumps(avisos, ensure_ascii=False),
              r["web_empleo"] or "", r["web_empleo"] or "",
              nuevo, nuevo, r["email_fuente"], nuevo, e["id"]))
     if nuevo:

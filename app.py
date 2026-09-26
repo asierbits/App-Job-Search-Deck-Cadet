@@ -40,6 +40,8 @@ def api_estado(_):
             "errores": uno("SELECT count(*) FROM empresas WHERE estado='error'"),
             "seleccionadas": uno("SELECT count(*) FROM empresas WHERE seleccionada=1 AND estado='nueva' AND email<>''"),
             "rastreadas": uno("SELECT count(*) FROM empresas WHERE email_buscado<>''"),
+            "con_avisos": uno("SELECT count(*) FROM empresas WHERE avisos NOT IN ('', '[]')"),
+            "empleo_mar": uno("SELECT count(*) FROM empresas WHERE menciones LIKE '%empleo embarcado / offshore%'"),
             "cadetes": uno("SELECT count(*) FROM empresas WHERE cadetes=1"),
             "portales": uno("SELECT count(*) FROM empresas WHERE email='' AND web_empleo<>''"),
             "por_rastrear": uno("SELECT count(*) FROM empresas WHERE estado IN ('sin_email','nueva') "
@@ -64,6 +66,7 @@ def api_estado(_):
         "cuenta": config.cuenta(),
         "motor": motor.estado,
         "revision": motor.revision(cfg),
+        "fuentes_leidas": db.leer_meta("fuentes_leidas", modo),
         "kpis": kpis,
         "diario": [{"dia": d, "enviados": enviados_dia.get(d, 0), "respuestas": respuestas_dia.get(d, 0)}
                    for d in dias],
@@ -211,9 +214,10 @@ def api_desconectar_cuenta(_):
     return config.cuenta()
 
 
-def api_iniciar(_):
-    """Paso 1: buscar navieras y rastrear sus webs (no envía nada)."""
-    if not motor.buscar():
+def api_iniciar(d):
+    """Paso 1: buscar navieras nuevas y rastrear las webs pendientes (no envía nada).
+    Con {"forzar": true} se releen las fuentes aunque se hayan leído hoy."""
+    if not motor.buscar(forzar=bool((d or {}).get("forzar"))):
         raise ValueError("Ya hay un proceso en marcha")
     return {"ok": True}
 

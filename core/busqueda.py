@@ -91,13 +91,15 @@ def guardar(resultados):
             if existe:
                 repetidas += 1
                 continue
+            avisos = [{"tipo": "ucrania", "texto": "Empresa registrada en Ucrania.", "url": r["web"]}] \
+                if r["pais"] == "ua" else []
             con.execute(
                 """INSERT INTO empresas(nombre, tipo, sector, ciudad, pais, email, web, telefono, fuente,
-                                        ref_externa, estado, creado)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                                        ref_externa, estado, creado, avisos)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (r["nombre"], r["tipo"], r["sector"], r["ciudad"], r["pais"], r["email"], r["web"],
                  r["telefono"], r["fuente"], r["ref_externa"], "nueva" if r["email"] else "sin_email",
-                 db.ahora()),
+                 db.ahora(), json.dumps(avisos, ensure_ascii=False)),
             )
             nuevas += 1
     return nuevas, repetidas

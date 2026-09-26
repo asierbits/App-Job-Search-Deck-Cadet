@@ -10,6 +10,7 @@ import html
 import re
 import ssl
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -58,10 +59,92 @@ COMERCIALES = ["comercial", "sales", "ventas", "booking", "chartering", "chart",
                "traffic", "trafico", "tráfico", "customer", "cliente", "atencion"]
 # Rutas que nunca son la página de empleo aunque su título lo parezca
 NO_EMPLEO = ("/blog", "/news", "/noticias", "/press", "/prensa", "/actualidad", "/aktuelles", "/nyheter", "/actualites")
-# Si la web habla de esto, probablemente acepta alumnos / cadetes
-PALABRAS_CADETES = ["cadet", "cadete", "alumno de puente", "alumnos de puente", "trainee officer",
-                    "kadett", "élève officier", "eleve officier", "allievo ufficiale", "officer trainee",
-                    "cadetship", "deck trainee", "nautical student", "alumno en prácticas", "praktikant"]
+# Términos que indican que embarcan alumnos / cadetes. Se buscan en el texto visible de la web, sin
+# distinguir mayúsculas ni tildes. El primero de cada par es cómo se muestra en el panel.
+TERMINOS_CADETE = [
+    ("alumno de puente en prácticas", ["alumno de puente en practicas", "alumnos de puente en practicas"]),
+    ("alumno de puente", ["alumno de puente", "alumnos de puente"]),
+    ("alumno en prácticas", ["alumno en practicas", "alumnos en practicas"]),
+    ("alumno", ["alumno", "alumnos"]),
+    ("deck cadet", ["deck cadet"]),
+    ("deck apprentice", ["deck apprentice"]),
+    ("engine cadet (máquinas)", ["engine cadet", "engineer cadet", "alumno de maquinas", "alumnos de maquinas"]),
+    ("cadet", ["cadet", "cadets", "cadetship", "cadete", "cadetes"]),
+    ("trainee officer", ["trainee officer", "officer trainee", "deck trainee"]),
+    ("kadett / praktikant", ["kadett", "praktikant"]),
+    ("élève officier", ["eleve officier"]),
+    ("allievo ufficiale", ["allievo ufficiale"]),
+]
+
+# Empleo embarcado / offshore: si la página de empleo habla de trabajar a bordo (aunque no mencione alumnos)
+EMPLEO_MAR = "empleo embarcado / offshore"  # se guarda junto a las menciones con este nombre
+EMPLEO_MAR_RE = re.compile(
+    r"\b(seafarers?|seagoing|sea staff|sea-based|sea based|at sea|onboard|on board|offshore|crew members?|"
+    r"crewing|marine crew|deck officers?|officer of the watch|able seam[ae]n|ratings|sea careers?|"
+    r"career at sea|careers at sea|working at sea|embarcad[oa]s?|a bordo|tripulacion|tripulantes?|"
+    r"oficial(?:es)? de puente|personal de flota|personal embarcado|seefahrend\w*|an bord|"
+    r"personnel navigant|navigants?|a bord|bordpersonal|sjofolk|til sjos)\b")
+
+
+# Avisos: señales para revisar una empresa antes de escribirle
+AVISOS = {
+    # MLC 2006 (regla 1.4): las agencias no pueden cobrar a los marinos por buscarles embarque
+    # (solo se busca en páginas de empleo/tripulación: en las de billetes de ferry «fee» es otra cosa)
+    "cobro": [r"registration fee", r"processing fee", r"placement fee", r"agency fee",
+              r"application fee", r"recruitment fee", r"training fee", r"manning fee", r"crewing fee",
+              r"embarkation fee", r"fee for (?:the )?(?:placement|employment|embarkation|registration)",
+              r"pay (?:a|the) fee",
+              r"tasa de (?:inscripcion|registro|gestion)", r"cuota de (?:inscripcion|registro|alta)",
+              r"gastos de gestion", r"pago previo", r"precio del embarque", r"coste del embarque",
+              r"debe(?:ra|s)? (?:abonar|pagar)", r"vermittlungsgebuhr", r"anmeldegebuhr", r"frais d'inscription"],
+    # Empresa / oficina en Ucrania o puertos ucranianos. No salta por la nacionalidad de la tripulación
+    # («ukrainian officers»), que no indica que la empresa sea de allí.
+    "ucrania": [r"\bodes{1,2}a\b", r"\bmykolaiv\b", r"\bnikolaev\b", r"\bizmail\b", r"\bchornomorsk\b",
+                r"\bkherson\b", r"\bmariupol\b", r"\bberdyansk\b", r"\bkyiv\b", r"\bkiev\b",
+                r"\b(?:in|from|based in|office in|offices in) ukraine\b", r"\bukraine (?:office|branch|ltd|llc)\b",
+                r"\bukrainian (?:company|shipowner|owner|agency|crewing|manning|flag)\b",
+                r"\ben ucrania\b", r"\bempresa ucraniana\b", r"\bagencia ucraniana\b"],
+    "mar_negro": [r"\bblack sea\b", r"\bmar negro\b", r"\bschwarze[sn]? meer\b", r"\bmer noire\b", r"\bmar nero\b",
+                  r"\bsea of azov\b", r"\bmar de azov\b", r"\bazov\b", r"\bnovorossiysk\b", r"\bkerch\b",
+                  r"\bsevastopol\b", r"\bcrimea\b", r"\bcrimea\b", r"\bconflict zone\b", r"\bwar risk area\b",
+                  r"\bhigh risk area\b", r"\bzona de conflicto\b"],
+}
+AVISOS_RE = {tipo: re.compile("|".join(p), re.I) for tipo, p in AVISOS.items()}
+
+
+def _sin_tildes(texto):
+    return unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii").lower()
+
+
+def texto_visible(html_pagina):
+    """El texto que ve una persona (sin scripts, estilos ni etiquetas), normalizado sin tildes."""
+    t = re.sub(r"<(script|style|noscript|svg)\b.*?</\1>", " ", html_pagina, flags=re.I | re.S)
+    t = re.sub(r"<[^>]+>", " ", t)
+    t = html.unescape(t)
+    return re.sub(r"\s+", " ", _sin_tildes(t))
+
+
+def buscar_terminos(texto):
+    """Términos de cadetes que aparecen como palabras completas en el texto (ya normalizado)."""
+    hallados = []
+    for etiqueta, variantes in TERMINOS_CADETE:
+        if any(re.search(r"\b" + re.escape(v) + r"\b", texto) for v in variantes):
+            hallados.append(etiqueta)
+    return hallados
+
+
+def buscar_avisos(texto, url, pagina_empleo=False):
+    """Avisos del texto con la frase que los provoca, para que la persona juzgue si son reales."""
+    avisos = []
+    for tipo, patron in AVISOS_RE.items():
+        if tipo == "cobro" and not pagina_empleo:
+            continue
+        m = patron.search(texto)
+        if m:
+            ini, fin = max(0, m.start() - 90), min(len(texto), m.end() + 90)
+            avisos.append({"tipo": tipo, "texto": ("…" if ini else "") + texto[ini:fin].strip() + ("…" if fin < len(texto) else ""),
+                           "url": url})
+    return avisos
 # Portales de empleo / tripulación de terceros a los que suelen enlazar
 PORTALES = ["crewportal", "crew-portal", "seagull", "workday", "successfactors", "teamtailor", "recruitee",
             "greenhouse.io", "lever.co", "smartrecruiters", "personio", "jobs.", "careers.", "join.com",
@@ -197,7 +280,7 @@ def nombre_de_la_web(texto):
 def rastrear(web):
     """Devuelve un dict con: email, email_fuente, web_empleo, cadetes (bool) y nombre (de la web)."""
     res = {"email": None, "email_fuente": None, "web_empleo": None, "cadetes": False, "nombre": "",
-           "bloqueada": False}
+           "bloqueada": False, "menciones": [], "avisos": []}
     if not web:
         return res
     if not re.match(r"https?://", web, re.I):
@@ -237,14 +320,24 @@ def rastrear(web):
         nuevos = [u for u in internos if u not in visitadas and u not in pendientes]
         pendientes = sorted(pendientes + nuevos, key=lambda u: _prioridad(u, "") if _prioridad(u, "") is not None else 99)
 
-        minus = texto.lower()
-        if any(p in minus for p in PALABRAS_CADETES):
-            res["cadetes"] = True
         ruta = urllib.parse.urlsplit(final).path.lower()
         es_empleo = any(p in ruta for p in PAGINAS_CLAVE[:PAGINAS_CLAVE.index("impressum")]) and \
             not any(n in ruta for n in NO_EMPLEO)
-        if es_empleo and not res["web_empleo"]:
-            res["web_empleo"] = final
+        visible = texto_visible(texto)
+        for t in buscar_terminos(visible):
+            if t not in res["menciones"]:
+                res["menciones"].append(t)
+        tipos_vistos = {a["tipo"] for a in res["avisos"]}
+        res["avisos"] += [a for a in buscar_avisos(visible, final, es_empleo) if a["tipo"] not in tipos_vistos]
+        res["cadetes"] = any(m != EMPLEO_MAR for m in res["menciones"])
+        if es_empleo:
+            a_bordo = bool(EMPLEO_MAR_RE.search(visible))
+            if a_bordo and EMPLEO_MAR not in res["menciones"]:
+                res["menciones"].append(EMPLEO_MAR)
+            # El enlace «empleo» apunta a la página de trabajo a bordo si la hay (mejor que una general)
+            if not res["web_empleo"] or (a_bordo and not res.get("empleo_es_a_bordo")):
+                res["web_empleo"] = final
+                res["empleo_es_a_bordo"] = a_bordo
         if portales and not res["web_empleo"]:
             res["web_empleo"] = portales[0]
 

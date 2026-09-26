@@ -12,6 +12,15 @@ Panel local para encontrar **embarque como alumno de puente**. Busca navieras de
 
 Cada persona tiene su propia configuración, su cuenta y sus datos: nada de eso va dentro del ZIP.
 
+## Actualizar a la última versión
+
+El programa **no se actualiza solo**.
+
+- **Si lo descargaste con git** (`git clone`): haz doble clic en `actualizar.bat`, o ejecuta `git pull` en la carpeta.
+- **Si lo descargaste como ZIP**: descarga el ZIP nuevo y descomprímelo **encima** de tu carpeta, aceptando reemplazar los ficheros.
+
+En los dos casos se conservan tu configuración, tu cuenta de Gmail y tus datos (`config.json`, `secretos.json` y la carpeta `datos/`). Después cierra el panel si estaba abierto y vuelve a abrir `iniciar.bat`. Las bases de datos antiguas se actualizan solas al arrancar.
+
 ## Arrancar
 
 ```

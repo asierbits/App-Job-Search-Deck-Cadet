@@ -96,6 +96,7 @@
         <div><h3 id="rastreo-titulo" style="margin:0"></h3><p class="secundario pequeno" id="rastreo-sub" style="margin:2px 0 0"></p></div>
         <div class="fila" style="margin:0">
           <button class="btn" id="btn-seguir-rastreo" hidden></button>
+          <button class="btn" id="btn-releer" hidden title="Vuelve a leer Wikidata y los directorios para buscar navieras nuevas (las que ya tienes no se repiten)">↻ Releer fuentes</button>
           <button class="btn" id="btn-detener-2" hidden>■ Detener</button>
         </div>
       </div>
@@ -121,6 +122,10 @@
           <option value="error">Error</option>
           <option disabled>──────────</option>
           <option value="cadetes">⚓ Su web habla de cadetes</option>
+          <option value="con_empleo">Con página de empleo</option>
+          <option value="empleo_mar">🚢 Empleo embarcado / offshore</option>
+          <option value="avisos">⚠ Con avisos (cobro, Ucrania, Mar Negro)</option>
+          <option value="sin_avisos">Sin avisos</option>
           <option value="portal">Sin email, con portal de empleo (registrarse a mano)</option>
           <option value="bloqueada">Web que bloquea programas (mirar a mano)</option>
         </select>
@@ -130,6 +135,7 @@
           <option value="agencia">Solo agencias</option>
         </select>
         <select id="filtro-pais"><option value="">Todos los países</option></select>
+        <select id="filtro-mencion" title="Qué dice su web sobre alumnos / cadetes"><option value="">Menciona: cualquier cosa</option></select>
       </div>
       <div class="tabla-envoltorio">
         <table class="tabla">

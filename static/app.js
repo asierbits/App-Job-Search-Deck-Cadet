@@ -182,6 +182,7 @@ function pintarCabecera(e) {
   $("#contador-no-leidas").hidden = !n;
   $("#contador-no-leidas").textContent = n;
   $("#btn-iniciar").hidden = e.motor.ejecutando;
+  $("#btn-iniciar").lastChild.textContent = e.kpis.empresas ? " 1 · Buscar navieras nuevas" : " 1 · Buscar navieras";
   $("#btn-detener").hidden = !e.motor.ejecutando;
   $("#btn-ir-revisar").hidden = !e.kpis.empresas;
   $("#btn-ir-revisar").textContent = e.kpis.seleccionadas ? `2 · Revisar y enviar (${e.kpis.seleccionadas}) →` : "2 · Revisar y enviar →";
@@ -403,6 +404,9 @@ $("#btn-iniciar").addEventListener("click", async () => {
 const detener = () => api("detener", {}).then(() => aviso("Deteniendo… (termina lo que está en curso)")).catch((err) => aviso(err.message, "critico"));
 $("#btn-detener").addEventListener("click", detener);
 $("#btn-detener-2").addEventListener("click", detener);
+$("#btn-releer").addEventListener("click", async () => {
+  try { await api("iniciar", { forzar: true }); refrescar(); } catch (err) { aviso(err.message, "critico"); }
+});
 $("#btn-seguir-rastreo").addEventListener("click", async () => {
   try { await api("rastrear-pendientes", {}); refrescar(); } catch (err) { aviso(err.message, "critico"); }
 });
@@ -480,9 +484,32 @@ async function cargarEmpresas() {
 }
 
 const elegible = (e) => e.estado === "nueva" && !!e.email;  // se le puede escribir
+
+// Avisos para revisar antes de escribir, y términos de cadetes que aparecen en su web
+const AVISO_INFO = {
+  cobro: { txt: "Posible cobro", clase: "critico",
+    ayuda: "Su web habla de pagar una tasa o cuota para embarcar. El Convenio MLC 2006 prohíbe que las agencias cobren al marino por buscarle embarque: desconfía y no pagues nada." },
+  ucrania: { txt: "Ucrania", clase: "",
+    ayuda: "La naviera o la agencia es de Ucrania o su web menciona Ucrania o sus puertos. Comprueba en qué zona operan sus buques antes de embarcar." },
+  mar_negro: { txt: "Mar Negro", clase: "",
+    ayuda: "Su web menciona el Mar Negro, el Mar de Azov, puertos de la zona o zonas de riesgo. Puede haber buques navegando en zona de conflicto." },
+};
+function avisosDe(e) {
+  try { return JSON.parse(e.avisos || "[]"); } catch { return []; }
+}
+const mencionesDe = (e) => (e.menciones || "").split("|").filter(Boolean);
+// «Empleo embarcado / offshore» se guarda junto a las menciones, pero no es un término de cadetes
+const EMPLEO_MAR = "empleo embarcado / offshore";
+const terminosCadete = (e) => mencionesDe(e).filter((t) => t !== EMPLEO_MAR);
+const aBordo = (e) => mencionesDe(e).includes(EMPLEO_MAR);
+const chipsAvisos = (e) => avisosDe(e).map((a) => {
+  const i = AVISO_INFO[a.tipo] || { txt: a.tipo, clase: "" };
+  return ` <span class="chip-aviso ${i.clase}" title="${esc(i.ayuda + "\n\n«" + a.texto + "»")}">⚠ ${esc(i.txt)}</span>`;
+}).join("");
 const pendienteRastreo = (e) => !!e.web && !e.email_buscado && ["nueva", "sin_email"].includes(e.estado);
 const BUZON_BUENO = /^(cadet|crew|manning|seafarer|marine|tripul|flota|fleet|personal|jobs?|career|karriere|bewerbung|empleo|rrhh|hr|recruit|talent|seleccion|people|practicas|trainee)/i;
-const recomendada = (e) => elegible(e) && (!!e.cadetes || BUZON_BUENO.test(e.email.split("@")[0]));
+// Recomendadas: con buzón de tripulación/empleo o que hablan de cadetes, y SIN avisos
+const recomendada = (e) => elegible(e) && !avisosDe(e).length && (!!e.cadetes || BUZON_BUENO.test(e.email.split("@")[0]));
 const idsEnCurso = () => new Set(((st.estado && st.estado.motor.en_curso) || []).map((x) => x.id));
 
 function estadoFila(e, enCurso) {
@@ -496,8 +523,14 @@ function filasVisibles() {
   const estado = $("#filtro-estado").value;
   const tipo = $("#filtro-tipo").value;
   const pais = $("#filtro-pais").value;
+  const mencion = $("#filtro-mencion").value;
+  const cumpleMencion = (e) => !mencion ? true : mencion === "*" ? terminosCadete(e).length > 0 : mencionesDe(e).includes(mencion);
   const cumpleEstado = (e) =>
     !estado ? true
+      : estado === "con_empleo" ? !!e.web_empleo
+      : estado === "empleo_mar" ? aBordo(e)
+      : estado === "avisos" ? avisosDe(e).length > 0
+      : estado === "sin_avisos" ? avisosDe(e).length === 0
       : estado === "elegibles" ? elegible(e)
       : estado === "seleccionadas" ? !!e.seleccionada && elegible(e)
       : estado === "pendiente_rastreo" ? pendienteRastreo(e)
@@ -506,7 +539,7 @@ function filasVisibles() {
       : estado === "bloqueada" ? !!e.web_bloqueada
       : e.estado === estado;
   return st.empresas.filter((e) =>
-    cumpleEstado(e) && (!tipo || e.tipo === tipo) && (!pais || (e.pais || "") === pais) &&
+    cumpleEstado(e) && cumpleMencion(e) && (!tipo || e.tipo === tipo) && (!pais || (e.pais || "") === pais) &&
     (!texto || `${e.nombre} ${e.sector} ${e.email} ${e.ciudad}`.toLowerCase().includes(texto)));
 }
 
@@ -515,6 +548,14 @@ function pintarEmpresas() {
   const pais = selPais.value;
   const paises = [...new Set(st.empresas.map((e) => e.pais || ""))].sort((a, b) => nombrePais(a).localeCompare(nombrePais(b)));
   selPais.innerHTML = `<option value="">Todos los países</option>` + paises.map((p) => `<option value="${esc(p)}" ${p === pais ? "selected" : ""}>${esc(nombrePais(p))} (${st.empresas.filter((e) => (e.pais || "") === p).length})</option>`).join("");
+  // Filtro «Menciona…»: los términos que se han encontrado en las webs, con cuántas navieras los usan
+  const selMen = $("#filtro-mencion");
+  const men = selMen.value;
+  const cuenta = {};
+  st.empresas.forEach((e) => terminosCadete(e).forEach((t) => (cuenta[t] = (cuenta[t] || 0) + 1)));
+  const conAlguna = st.empresas.filter((e) => terminosCadete(e).length).length;
+  selMen.innerHTML = `<option value="">Menciona: cualquier cosa</option><option value="*" ${men === "*" ? "selected" : ""}>⚓ Algún término de cadetes (${conAlguna})</option>` +
+    Object.entries(cuenta).sort((a, b) => b[1] - a[1]).map(([t, n]) => `<option value="${esc(t)}" ${t === men ? "selected" : ""}>“${esc(t)}” (${n})</option>`).join("");
   const filas = filasVisibles();
   const enCurso = idsEnCurso();
 
@@ -528,12 +569,15 @@ function pintarEmpresas() {
   todas.indeterminate = !todas.checked && elegiblesVisibles.some((e) => e.seleccionada);
 
   tbody.innerHTML = filas.map((e) => `
-    <tr data-id="${e.id}" class="${e.seleccionada && elegible(e) ? "seleccionada" : ""}">
+    <tr data-id="${e.id}" class="${e.seleccionada && elegible(e) ? "seleccionada" : ""} ${avisosDe(e).length ? "con-aviso" : ""}">
       <td class="col-check">${elegible(e) ? `<input type="checkbox" data-sel="${e.id}" ${e.seleccionada ? "checked" : ""} title="Enviarle el correo">` : ""}</td>
       <td><div class="celda-nombre">${avatar(e.nombre, e.ultima_categoria)}<span><span class="nombre" data-ver="${e.id}">${esc(e.nombre)}</span>
         ${e.web ? ` <a href="${urlSegura(e.web)}" target="_blank" rel="noopener" class="pequeno">web</a>` : ""}
         ${e.web_empleo ? ` · <a href="${urlSegura(e.web_empleo)}" target="_blank" rel="noopener" class="pequeno" title="Página de empleo / tripulación: si no tienen email, regístrate ahí">empleo</a>` : ""}
-        ${e.cadetes ? ` <span class="chip-cadetes" title="Su web menciona cadetes o alumnos">⚓ cadetes</span>` : ""}
+        ${terminosCadete(e).length ? ` <span class="chip-cadetes" title="Su web menciona: ${esc(terminosCadete(e).join(", "))}">⚓ ${esc(terminosCadete(e)[0])}${terminosCadete(e).length > 1 ? ` +${terminosCadete(e).length - 1}` : ""}</span>`
+          : e.cadetes && !e.menciones ? ` <span class="chip-cadetes" title="Su web menciona cadetes o alumnos">⚓ cadetes</span>` : ""}
+        ${aBordo(e) && e.web_empleo ? ` <a class="chip-cadetes chip-enlace" href="${urlSegura(e.web_empleo)}" target="_blank" rel="noopener" title="Su página de empleo habla de trabajo a bordo / offshore. Pulsa para abrirla">🚢 empleo a bordo</a>` : ""}
+        ${chipsAvisos(e)}
         ${e.web_bloqueada ? ` <span class="chip-bloqueada" title="Su web no deja leerla a programas: ábrela tú">web bloquea</span>` : ""}</span></div></td>
       <td title="${esc(e.ciudad)}"><span class="tipo-chip">${esc((e.pais || "—").toUpperCase())}</span></td>
       <td><span class="tipo-chip">${e.tipo === "agencia" ? "Agencia" : "Empresa"}</span></td>
@@ -552,7 +596,7 @@ function pintarEmpresas() {
     </tr>`).join("");
 }
 
-["#filtro-texto", "#filtro-estado", "#filtro-tipo", "#filtro-pais"].forEach((s) => $(s).addEventListener("input", pintarEmpresas));
+["#filtro-texto", "#filtro-estado", "#filtro-tipo", "#filtro-pais", "#filtro-mencion"].forEach((s) => $(s).addEventListener("input", pintarEmpresas));
 
 // ------------------------------------------------------------ progreso en directo
 
@@ -570,7 +614,9 @@ function pintarTarjetaRastreo(e) {
     ? (m.total ? `${m.hecho} de ${m.total} webs · no se envía nada hasta que tú lo decidas` : "Leyendo las fuentes de navieras…")
     : enviando ? `${m.hecho} de ${m.total} · solo a las que seleccionaste`
     : k.por_rastrear ? `Quedan ${k.por_rastrear} webs por rastrear. Puedes seguir cuando quieras.`
-    : "Marca las navieras a las que quieres escribir y pulsa «Enviar».";
+    : "Todas analizadas. La próxima búsqueda solo analizará navieras nuevas." +
+      (e.fuentes_leidas ? ` Fuentes leídas ${fecha(e.fuentes_leidas)}.` : "") +
+      " Marca las navieras a las que quieres escribir y pulsa «Enviar».";
   const pista = $("#rastreo-pista");
   pista.hidden = !m.ejecutando;
   const barra = $("#rastreo-barra");
@@ -581,10 +627,12 @@ function pintarTarjetaRastreo(e) {
   const seguir = $("#btn-seguir-rastreo");
   seguir.hidden = m.ejecutando || !k.por_rastrear;
   seguir.textContent = `Seguir rastreando (${k.por_rastrear})`;
+  $("#btn-releer").hidden = m.ejecutando || !e.fuentes_leidas;
 
   $("#rastreo-contadores").innerHTML = [
     [k.empresas, "encontradas"], [k.rastreadas, "webs rastreadas"], [k.con_email, "con email"],
-    [k.cadetes, "⚓ hablan de cadetes"], [k.portales, "solo portal de empleo"],
+    [k.cadetes, "⚓ hablan de cadetes"], [k.empleo_mar, "🚢 empleo a bordo"], [k.portales, "solo portal de empleo"],
+    [k.con_avisos, "⚠ con avisos"],
   ].map(([n, t]) => `<span><b>${n}</b> ${t}</span>`).join("");
 
   $("#rastreo-ahora").innerHTML = buscando && m.en_curso.length
@@ -596,7 +644,9 @@ function pintarTarjetaRastreo(e) {
   $("#rastreo-ultimos").innerHTML = ultimas.map((x) => {
     const partes = [
       x.web_bloqueada ? "web bloquea programas" : x.email ? "✉ " + x.email : "sin email",
-      x.cadetes ? "⚓ cadetes" : "", x.web_empleo && !x.email ? "portal de empleo" : "",
+      terminosCadete(x).length ? "⚓ " + terminosCadete(x).join(", ") : "", aBordo(x) ? "🚢 empleo a bordo" : "",
+      x.web_empleo && !x.email ? "portal de empleo" : "",
+      ...avisosDe(x).map((a) => "⚠ " + ((AVISO_INFO[a.tipo] || {}).txt || a.tipo)),
     ].filter(Boolean).join(" · ");
     return `<div class="fila-res"><span>${esc(x.nombre)}</span><span>${esc(partes)}</span></div>`;
   }).join("");
@@ -655,6 +705,11 @@ $("#btn-sel-ninguna").addEventListener("click", () => {
 $("#btn-enviar").addEventListener("click", async () => {
   const e = st.estado;
   const n = st.empresas.filter((x) => x.seleccionada && elegible(x)).length;
+  const conAviso = st.empresas.filter((x) => x.seleccionada && elegible(x) && avisosDe(x).length);
+  if (conAviso.length && !confirm(`⚠ ${conAviso.length} de las seleccionadas tienen avisos:\n\n` +
+      conAviso.slice(0, 12).map((x) => `• ${x.nombre}: ${avisosDe(x).map((a) => (AVISO_INFO[a.tipo] || {}).txt || a.tipo).join(", ")}`).join("\n") +
+      (conAviso.length > 12 ? `\n… y ${conAviso.length - 12} más` : "") +
+      `\n\n¿Seguro que quieres escribirles? (Pulsa Cancelar para revisarlas; filtra por «⚠ Con avisos».)`)) return;
   const texto = e.modo === "real"
     ? `MODO REAL: se enviará tu correo de verdad a las navieras seleccionadas (${n}).\n\n¿Has revisado tu mensaje y tu CV?`
     : e.modo === "prueba"
@@ -746,9 +801,17 @@ async function abrirEmpresa(id) {
   const rastreo = e.web_bloqueada ? "Su web no deja leerla a programas: ábrela tú."
     : e.email_buscado ? `Rastreada ${esc(fecha(e.email_buscado))}` : e.web ? "Aún no se ha rastreado su web." : "No tiene web.";
 
+  const avisos = avisosDe(e);
   $("#dialogo-cuerpo").innerHTML = `
+    ${avisos.map((a) => {
+      const i = AVISO_INFO[a.tipo] || { txt: a.tipo, clase: "", ayuda: "" };
+      return `<div class="caja-aviso ${i.clase}"><b>⚠ ${esc(i.txt)}.</b> ${esc(i.ayuda)}
+        <q>${esc(a.texto)}</q>${a.url ? `<div class="pequeno" style="margin-top:4px">Visto en ${enlace(a.url, "esta página")}</div>` : ""}</div>`;
+    }).join("")}
     <dl class="ficha">
-      <dt>Estado</dt><dd>${estadoHtml(e.estado)}${e.cadetes ? ` <span class="chip-cadetes">⚓ su web habla de cadetes</span>` : ""}</dd>
+      <dt>Estado</dt><dd>${estadoHtml(e.estado)}</dd>
+      <dt>Su web menciona</dt><dd>${terminosCadete(e).length ? terminosCadete(e).map((t) => `<span class="chip-cadetes">⚓ ${esc(t)}</span>`).join(" ") : e.email_buscado ? "ningún término de cadetes / alumnos" : "aún no rastreada"}</dd>
+      <dt>Empleo a bordo</dt><dd>${aBordo(e) ? `🚢 Sí: su página de empleo habla de trabajo embarcado / offshore · ${enlace(e.web_empleo, "abrir")}` : e.web_empleo ? "Tiene página de empleo, pero no habla de trabajo a bordo" : "—"}</dd>
       <dt>País</dt><dd>${esc(nombrePais(e.pais))}${e.ciudad ? " · " + esc(e.ciudad) : ""}</dd>
       <dt>Sector</dt><dd>${esc(e.sector || "—")} · ${e.tipo === "agencia" ? "Agencia" : "Empresa"}</dd>
       <dt>Web</dt><dd>${enlace(e.web)}</dd>

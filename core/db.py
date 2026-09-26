@@ -2,6 +2,7 @@
 así los datos de prueba nunca se mezclan con los envíos reales."""
 import os
 import sqlite3
+import threading
 from contextlib import contextmanager
 from datetime import datetime
 
@@ -22,6 +23,8 @@ CREATE TABLE IF NOT EXISTS empresas (
     cadetes INTEGER DEFAULT 0,                 -- 1 si su web menciona cadetes / alumnos
     web_bloqueada INTEGER DEFAULT 0,           -- 1 si su web no deja leerla a programas
     seleccionada INTEGER DEFAULT 0,            -- 1 si la has elegido para enviarle el correo
+    menciones TEXT DEFAULT '',                 -- términos de cadetes que aparecen en su web (separados por |)
+    avisos TEXT DEFAULT '[]',                  -- JSON: [{tipo: cobro|ucrania|mar_negro, texto, url}]
     web TEXT DEFAULT '',
     telefono TEXT DEFAULT '',
     fuente TEXT DEFAULT '',
@@ -70,6 +73,9 @@ CREATE TABLE IF NOT EXISTS respuestas_programadas (
     llega_en TEXT NOT NULL
 );
 
+-- Datos sueltos del modo (p. ej. cuándo se leyeron las fuentes por última vez)
+CREATE TABLE IF NOT EXISTS meta (clave TEXT PRIMARY KEY, valor TEXT);
+
 -- UIDs de IMAP ya revisados, para no volver a descargarlos
 CREATE TABLE IF NOT EXISTS imap_vistos (uid TEXT PRIMARY KEY);
 
@@ -113,17 +119,37 @@ def conectar(modo=None):
 
 COLUMNAS_NUEVAS = {"pais": "TEXT DEFAULT ''", "email_buscado": "TEXT DEFAULT ''", "email_fuente": "TEXT DEFAULT ''",
                    "web_empleo": "TEXT DEFAULT ''", "cadetes": "INTEGER DEFAULT 0", "web_bloqueada": "INTEGER DEFAULT 0",
-                   "seleccionada": "INTEGER DEFAULT 0"}
+                   "seleccionada": "INTEGER DEFAULT 0", "menciones": "TEXT DEFAULT ''", "avisos": "TEXT DEFAULT '[]'"}
+
+
+_migradas = set()
+_lock_migrar = threading.Lock()
 
 
 def _migrar(con):
-    """Añade a las bases de datos antiguas las columnas que se han ido incorporando."""
+    """Añade a las bases de datos antiguas las columnas que se han ido incorporando (una vez por fichero,
+    protegido con un candado porque el rastreo abre conexiones desde varios hilos a la vez)."""
+    fichero = con.execute("PRAGMA database_list").fetchone()[2]
+    if fichero in _migradas:
+        return
+    with _lock_migrar:
+        if fichero in _migradas:
+            return
+        _migrar_columnas(con)
+        con.commit()
+        _migradas.add(fichero)
+
+
+def _migrar_columnas(con):
     existentes = {r[1] for r in con.execute("PRAGMA table_info(empresas)")}
     for nombre, tipo in COLUMNAS_NUEVAS.items():
         if nombre not in existentes:
             con.execute(f"ALTER TABLE empresas ADD COLUMN {nombre} {tipo}")
             if nombre == "pais":  # todo lo anterior a esta versión era de España
                 con.execute("UPDATE empresas SET pais = 'es'")
+            if nombre == "menciones":
+                # Los rastreos anteriores no buscaban términos de cadetes ni avisos: se repiten UNA vez
+                con.execute("UPDATE empresas SET email_buscado = '' WHERE web <> ''")
 
 
 def filas(cur):
@@ -139,9 +165,36 @@ CREATE TABLE IF NOT EXISTS rastreos (
     dominio TEXT PRIMARY KEY,
     email TEXT, email_fuente TEXT, web_empleo TEXT, nombre TEXT,
     cadetes INTEGER DEFAULT 0, bloqueada INTEGER DEFAULT 0,
-    fecha TEXT NOT NULL
+    fecha TEXT NOT NULL,
+    menciones TEXT, avisos TEXT                -- NULL = rastreo antiguo, sin términos ni avisos
 );
 """
+
+
+_rastreos_preparados = False
+_lock_rastreos = threading.Lock()
+
+
+def _preparar_rastreos(con):
+    """Crea / actualiza la tabla una sola vez (el rastreo usa varios hilos a la vez)."""
+    global _rastreos_preparados
+    if _rastreos_preparados:
+        return
+    with _lock_rastreos:
+        if _rastreos_preparados:
+            return
+        con.execute("PRAGMA journal_mode=WAL")
+        con.executescript(ESQUEMA_RASTREOS)
+        columnas = {r[1] for r in con.execute("PRAGMA table_info(rastreos)")}
+        for c in ("menciones", "avisos"):
+            if c not in columnas:
+                try:
+                    con.execute(f"ALTER TABLE rastreos ADD COLUMN {c} TEXT")
+                except sqlite3.OperationalError as ex:
+                    if "duplicate column" not in str(ex):
+                        raise
+        con.commit()
+        _rastreos_preparados = True
 
 
 @contextmanager
@@ -150,8 +203,7 @@ def conectar_rastreos():
     con = sqlite3.connect(os.path.join(config.ruta("datos"), "rastreos.db"), timeout=15)
     con.row_factory = sqlite3.Row
     try:
-        con.execute("PRAGMA journal_mode=WAL")
-        con.executescript(ESQUEMA_RASTREOS)
+        _preparar_rastreos(con)
         yield con
         con.commit()
     except Exception:
@@ -159,6 +211,17 @@ def conectar_rastreos():
         raise
     finally:
         con.close()
+
+
+def leer_meta(clave, modo=None):
+    with conectar(modo) as con:
+        f = con.execute("SELECT valor FROM meta WHERE clave = ?", (clave,)).fetchone()
+    return f[0] if f else None
+
+
+def guardar_meta(clave, valor, modo=None):
+    with conectar(modo) as con:
+        con.execute("INSERT OR REPLACE INTO meta(clave, valor) VALUES (?, ?)", (clave, valor))
 
 
 def evento(mensaje, nivel="info", modo=None):

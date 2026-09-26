@@ -319,6 +319,8 @@ figcaption p { margin: 2px 0 0; }
 .celda-email { display: flex; gap: 6px; align-items: center; }
 .chip-cadetes { font-size: 11.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap;
   background: color-mix(in srgb, var(--acento) 14%, transparent); color: var(--tinta); }
+a.chip-enlace { text-decoration: none; background: color-mix(in srgb, var(--bien) 18%, transparent); }
+a.chip-enlace:hover { text-decoration: underline; }
 .chip-bloqueada { font-size: 11.5px; padding: 1px 7px; border-radius: 999px; white-space: nowrap;
   background: color-mix(in srgb, var(--aviso) 22%, transparent); color: var(--tinta); }
 /* ---------- progreso del rastreo y envío ---------- */
@@ -350,6 +352,14 @@ figcaption p { margin: 2px 0 0; }
 .ficha dt { color: var(--tinta-2); }
 .ficha dd { margin: 0; overflow-wrap: anywhere; }
 .correo-mock.pequeno-mock { padding: 14px 16px; margin-top: 8px; }
+.chip-aviso { font-size: 11.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; white-space: nowrap; color: var(--tinta);
+  background: color-mix(in srgb, var(--aviso) 26%, transparent); cursor: help; }
+.chip-aviso.critico { background: color-mix(in srgb, var(--critico) 22%, transparent); }
+.caja-aviso { border-left: 4px solid var(--aviso); background: color-mix(in srgb, var(--aviso) 9%, transparent);
+  border-radius: 10px; padding: 10px 14px; margin: 10px 0; font-size: 13.5px; }
+.caja-aviso.critico { border-left-color: var(--critico); background: color-mix(in srgb, var(--critico) 8%, transparent); }
+.caja-aviso q { display: block; margin-top: 6px; color: var(--tinta-2); font-style: italic; quotes: "«" "»"; }
+tr.con-aviso td:first-child { box-shadow: inset 3px 0 0 var(--aviso); }
 textarea.mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; white-space: pre; overflow-x: auto; }
 .tabla td.acciones-fila { text-align: right; white-space: nowrap; }
 .tipo-chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--superficie-2); color: var(--tinta-2); white-space: nowrap; }
