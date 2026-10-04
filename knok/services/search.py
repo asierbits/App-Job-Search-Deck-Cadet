@@ -2,9 +2,10 @@
 
 La búsqueda NO envía nada: deja resultados con la vía decidida para que el usuario cree una tanda.
 """
+import time
 from datetime import timedelta
 
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from knok.core.http import default_http
@@ -16,6 +17,7 @@ from knok.packs.schema import Pack
 from knok.services import sources
 from knok.services.companies import best_emails
 from knok.services.events import log_event
+from knok.services.progress import Cancelled, Progress
 from knok.settings import get_settings
 from knok.worker.queue import task
 
@@ -30,7 +32,11 @@ def default_sources() -> list[str]:
     return ["ats", "adzuna", "infojobs", "companies"]
 
 
-def run_ingest(db: Session, search: Search, pack: Pack) -> dict:
+SOURCE_NAMES = {"ats": "tableros de empresas (Greenhouse, Lever, Ashby)", "adzuna": "Adzuna", "infojobs": "InfoJobs",
+                "sample": "datos de ejemplo", "companies": "fuentes de empresas del nicho"}
+
+
+def run_ingest(db: Session, search: Search, pack: Pack, progress: Progress | None = None) -> dict:
     p = search.params
     http = default_http()
     stats = {}
@@ -39,22 +45,38 @@ def run_ingest(db: Session, search: Search, pack: Pack) -> dict:
         fuentes = [f for f in fuentes if f in ("sample",)] or ["sample"]
     countries, keywords = p.get("countries") or [], p.get("keywords") or []
     for f in fuentes:
+        if progress:
+            progress.phase(f"Buscando en {SOURCE_NAMES.get(f, f)}")
+            progress.check_cancel()
+        def leer(f=f):
+            if f == "ats":
+                stats["ats"] = sources.ingest_ats(db, http, pack)
+            elif f == "adzuna":
+                stats["adzuna"] = sources.ingest_adzuna(db, http, pack, countries, keywords)
+            elif f == "infojobs":
+                stats["infojobs"] = sources.ingest_infojobs(db, http, pack, countries, keywords)
+            elif f == "sample":
+                stats["sample"] = sources.ingest_sample(db, pack)
+            elif f == "companies":
+                from knok.services.prospecting import ingest_companies
+                stats["companies"] = ingest_companies(db, http, pack, p, progress)
+
         try:
-            with db.begin_nested():
-                if f == "ats":
-                    stats["ats"] = sources.ingest_ats(db, http, pack)
-                elif f == "adzuna":
-                    stats["adzuna"] = sources.ingest_adzuna(db, http, pack, countries, keywords)
-                elif f == "infojobs":
-                    stats["infojobs"] = sources.ingest_infojobs(db, http, pack, countries, keywords)
-                elif f == "sample":
-                    stats["sample"] = sources.ingest_sample(db, pack)
-                elif f == "companies":
-                    from knok.services.prospecting import ingest_companies
-                    stats["companies"] = ingest_companies(db, http, pack, p)
-        except Exception as ex:  # una fuente caída no para la búsqueda
+            if progress and not progress.eager:
+                leer()
+                db.commit()          # cada fuente se guarda en cuanto termina
+            else:
+                with db.begin_nested():
+                    leer()
+        except Cancelled:
+            raise
+        except Exception as ex:  # una fuente caída no para la búsqueda (se deshace solo lo de esa fuente)
+            if progress and not progress.eager:
+                db.rollback()
             stats[f] = {"error": f"{type(ex).__name__}: {ex}"}
             log_event(db, search.user_id, f"Fuente {f}: no disponible ahora ({ex})", "warning")
+        if progress:
+            progress.checkpoint(force=True)
     return stats
 
 
@@ -113,36 +135,86 @@ def create_search(db: Session, profile: Profile, params: dict) -> Search:
     return s
 
 
+def save_results(db: Session, search: Search, pack: Pack, profile: Profile) -> dict:
+    """(Re)calcula los resultados de la búsqueda con lo que hay ahora en la base común."""
+    db.execute(delete(SearchResult).where(SearchResult.search_id == search.id))
+    resultados = rank_jobs(db, search, pack, profile)
+    if search.params.get("include_companies", True):
+        from knok.services.prospecting import rank_companies
+        resultados += rank_companies(db, search, pack, profile, {r.company_id for r in resultados if r.company_id})
+    resultados.sort(key=lambda r: -r.score)
+    maximo = int(search.params.get("max_results") or 500)
+    rutas: dict[str, int] = {}
+    for r in resultados[:maximo]:
+        db.add(r)
+        rutas[r.route] = rutas.get(r.route, 0) + 1
+    db.flush()
+    return {"results": min(len(resultados), maximo), "matched": len(resultados), "routes": rutas}
+
+
+def _execute(db: Session, search: Search, pack: Pack, profile: Profile, progress: Progress) -> None:
+    ingest_stats = run_ingest(db, search, pack, progress)
+    search.stats = {**(search.stats or {}), "sources": ingest_stats, **save_results(db, search, pack, profile)}
+    progress.checkpoint(force=True)
+
+    p = search.params
+    crawl_stats = {}
+    max_webs = int(p.get("max_webs", 200) or 0)
+    if "companies" in (p.get("sources") or default_sources()) and max_webs > 0 \
+            and not get_settings().offline_sources:
+        from knok.services.prospecting import crawl_pending
+        progress.check_cancel()
+        ultimo = [time.monotonic()]
+
+        def refrescar_resultados():
+            # Mientras rastrea, los resultados se recalculan cada poco para que el panel los vaya viendo
+            if time.monotonic() - ultimo[0] > 15:
+                search.stats = {**search.stats, **save_results(db, search, pack, profile)}
+                ultimo[0] = time.monotonic()
+
+        progress.on_checkpoint = refrescar_resultados
+        crawl_stats = crawl_pending(db, default_http(), pack, p.get("countries") or [], max_webs, progress)
+        progress.on_checkpoint = None
+    search.stats = {**search.stats, "crawl": crawl_stats, **save_results(db, search, pack, profile)}
+    search.status, search.finished_at = "done", utcnow()
+    progress.data.update(phase="Terminado", done=progress.data["total"])
+    pendientes = crawl_stats.get("pending_after", 0)
+    log_event(db, search.user_id, f"Búsqueda terminada: {search.stats['results']} resultados"
+              + (f" ({crawl_stats.get('crawled', 0)} webs rastreadas; quedan {pendientes} para la próxima búsqueda)"
+                 if crawl_stats else "") + ".", "ok", search_id=search.id)
+    progress.checkpoint(force=True)
+
+
 @task("run_search")
 def run_search_task(db: Session, payload: dict) -> dict:
     search = db.get(Search, payload["search_id"])
     if search is None:
         return {"missing": True}
+    if search.status == "cancelling":
+        search.status, search.finished_at = "cancelled", utcnow()
+        return {"cancelled": True}
     profile = db.get(Profile, search.user_id)
     pack = pack_or_default(search.params.get("pack"))
     search.status = "running"
-    db.flush()
+    progress = Progress(db, search)
+    progress.checkpoint(force=True)
     try:
-        with db.begin_nested():  # si algo falla, se deshace solo lo de esta búsqueda y queda marcada con error
-            ingest_stats = run_ingest(db, search, pack)
-            resultados = rank_jobs(db, search, pack, profile)
-            if search.params.get("include_companies", True):
-                from knok.services.prospecting import rank_companies
-                resultados += rank_companies(db, search, pack, profile,
-                                             {r.company_id for r in resultados if r.company_id})
-            resultados.sort(key=lambda r: -r.score)
-            maximo = int(search.params.get("max_results") or 200)
-            rutas: dict[str, int] = {}
-            for r in resultados[:maximo]:
-                db.add(r)
-                rutas[r.route] = rutas.get(r.route, 0) + 1
-            search.stats = {"sources": ingest_stats, "results": min(len(resultados), maximo),
-                            "matched": len(resultados), "routes": rutas}
-            search.status = "done"
-            search.finished_at = utcnow()
-        log_event(db, search.user_id, f"Búsqueda terminada: {search.stats['results']} resultados.", "ok",
-                  search_id=search.id)
+        if progress.eager:   # tests / demos: todo en una transacción que se deshace entera si falla
+            with db.begin_nested():
+                _execute(db, search, pack, profile, progress)
+        else:
+            _execute(db, search, pack, profile, progress)
+    except Cancelled:
+        search.stats = {**(search.stats or {}), **save_results(db, search, pack, profile)}
+        search.status, search.finished_at = "cancelled", utcnow()
+        progress.data.update(phase="Detenida")
+        log_event(db, search.user_id, "Búsqueda detenida. Lo ya rastreado se conserva.", "warning", search_id=search.id)
+        progress.checkpoint(force=True)
+        return {"cancelled": True}
     except Exception as ex:
+        if not progress.eager:
+            db.rollback()
+            search = db.get(Search, payload["search_id"])
         search.status, search.error, search.finished_at = "error", f"{type(ex).__name__}: {ex}", utcnow()
         log_event(db, search.user_id, f"La búsqueda falló: {ex}", "error", search_id=search.id)
         return {"error": search.error}

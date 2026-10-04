@@ -18,12 +18,11 @@ from knok.db.models import Application, Company, Crawl, Profile, Search, SearchR
 from knok.packs.schema import Pack
 from knok.services import ingest, sources
 from knok.services.companies import best_emails
+from knok.services.events import log_event
 from knok.settings import get_settings
-from knok.worker.queue import enqueue
 
 CACHE = {"wikidata": timedelta(days=7), "directory": timedelta(days=7), "osm": timedelta(days=30)}
-CRAWL_BUDGET = 12          # webs rastreadas durante la búsqueda; el resto, en segundo plano
-BACKGROUND_CHUNK = 20
+CRAWL_BUDGET = 200         # webs rastreadas como mucho en cada búsqueda; el resto, en la siguiente
 
 
 def _cached_or_run(db: Session, source: str, query: dict, fn) -> dict:
@@ -47,24 +46,38 @@ def is_excluded(pack: Pack, nombre: str) -> bool:
     return bool(re.search(r"\b(?:" + "|".join(pack.crawl.exclude_names) + r")\b", nombre or "", re.I))
 
 
-def ingest_companies(db: Session, http: Http, pack: Pack, params: dict) -> dict:
+def ingest_companies(db: Session, http: Http, pack: Pack, params: dict, progress=None) -> dict:
+    """Lee las fuentes de empresas del pack (Wikidata, directorios, OpenStreetMap). No rastrea webs."""
     stats: dict = {}
     s = pack.sources
     ua = get_settings().crawler_user_agent
+    tareas = []
     if s.wikidata.queries:
-        stats["wikidata"] = _cached_or_run(db, "wikidata", {"pack": pack.slug, "countries": sorted(s.wikidata.countries)},
-                                           lambda: wikidata.search(http, s.wikidata))
+        tareas.append(("Wikidata", "wikidata", {"pack": pack.slug, "countries": sorted(s.wikidata.countries)},
+                       lambda: wikidata.search(http, s.wikidata)))
     for d in s.directories:
-        stats[f"directory:{d.url[:60]}"] = _cached_or_run(
-            db, "directory", {"pack": pack.slug, "url": d.url},
-            lambda d=d: directories.read_directory(http, d.url, d.country, pack.crawl.exclude_domains,
-                                                   pack.crawl.allowed_countries, ua))
+        tareas.append((d.url.split("/")[2] if "//" in d.url else d.url, "directory", {"pack": pack.slug, "url": d.url},
+                       lambda d=d: directories.read_directory(http, d.url, d.country, pack.crawl.exclude_domains,
+                                                              pack.crawl.allowed_countries, ua)))
     if s.osm.tags:
+        radio = float(params.get("radius_km") or 10)
         for ciudad in params.get("cities") or []:
-            radio = float(params.get("radius_km") or 10)
-            stats[f"osm:{ciudad}"] = _cached_or_run(db, "osm", {"pack": pack.slug, "city": ciudad.lower(), "radius": radio},
-                                                    lambda c=ciudad: osm.search_city(http, c, radio, s.osm))
-    stats["crawl"] = crawl_pending(db, http, pack, params.get("countries") or [])
+            tareas.append((f"OpenStreetMap: {ciudad}", "osm", {"pack": pack.slug, "city": ciudad.lower(), "radius": radio},
+                           lambda c=ciudad: osm.search_city(http, c, radio, s.osm)))
+    for i, (nombre, fuente, consulta, fn) in enumerate(tareas):
+        if progress:
+            progress.data.update(phase=f"Leyendo {nombre}", done=i, total=len(tareas))
+            progress.checkpoint(force=True)
+            progress.check_cancel()
+        r = _cached_or_run(db, fuente, consulta, fn)
+        stats[f"{fuente}:{nombre}"] = r
+        if progress:
+            if r.get("error"):
+                log_event(db, progress.search.user_id, f"{nombre}: no se pudo leer ({r['error'][:120]})", "warning")
+            elif r.get("cached"):
+                log_event(db, progress.search.user_id, f"{nombre}: ya leído hace poco, se reutiliza.", "info")
+            else:
+                log_event(db, progress.search.user_id, f"{nombre}: {r.get('companies', 0)} empresas.", "info")
     return stats
 
 
@@ -72,20 +85,30 @@ def _pack_filter(slug: str):
     return cast(Company.packs, String).like(f'%"{slug}"%')
 
 
-def crawl_pending(db: Session, http: Http, pack: Pack, countries: list[str], budget: int = CRAWL_BUDGET) -> dict:
-    """Rastrea las webs aún no rastreadas para este pack (primero las de los países pedidos)."""
-    from knok.services.crawling import crawl_companies
+def pending_to_crawl(db: Session, pack: Pack, countries: list[str], limit: int = 5000) -> list[Company]:
+    """Empresas del pack con web que aún no se han rastreado (o hace más de 30 días)."""
     rastreadas = select(Crawl.domain).where(Crawl.pack == pack.slug, Crawl.fetched_at >= utcnow() - timedelta(days=30))
     q = select(Company).where(_pack_filter(pack.slug), Company.domain.is_not(None), Company.website != "",
                               Company.domain.not_in(rastreadas))
     if countries:
         q = q.where(or_(Company.country.in_(countries), Company.country == ""))
-    candidatas = [c for c in db.scalars(q.order_by(Company.id).limit(500)) if not is_excluded(pack, c.name)]
-    ahora, despues = candidatas[:budget], candidatas[budget:]
-    stats = crawl_companies(db, ahora, pack, http) if ahora else {"crawled": 0}
-    for i in range(0, len(despues), BACKGROUND_CHUNK):
-        enqueue(db, "crawl_companies", {"pack": pack.slug, "company_ids": [c.id for c in despues[i:i + BACKGROUND_CHUNK]]})
-    stats["queued"] = len(despues)
+    # Primero las de los países pedidos (en el orden pedido) y luego el resto
+    orden = {c: i for i, c in enumerate(countries or [])}
+    candidatas = [c for c in db.scalars(q.order_by(Company.id).limit(limit)) if not is_excluded(pack, c.name)]
+    return sorted(candidatas, key=lambda c: orden.get(c.country, len(orden)))
+
+
+def crawl_pending(db: Session, http: Http, pack: Pack, countries: list[str], budget: int = CRAWL_BUDGET,
+                  progress=None) -> dict:
+    """Rastrea hasta `budget` webs pendientes. Las demás quedan para la próxima búsqueda."""
+    from knok.services.crawling import crawl_companies
+    candidatas = pending_to_crawl(db, pack, countries)
+    ahora = candidatas[:budget]
+    if progress:
+        progress.data.update(phase="Rastreando webs", done=0, total=len(ahora))
+        progress.checkpoint(force=True)
+    stats = crawl_companies(db, ahora, pack, http, progress=progress) if ahora else {"crawled": 0}
+    stats["pending_after"] = max(0, len(candidatas) - len(ahora))
     return stats
 
 

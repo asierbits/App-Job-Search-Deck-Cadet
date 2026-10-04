@@ -29,7 +29,8 @@ class SearchIn(BaseModel):
         default=[], description="Vacío = todas las disponibles")
     include_remote: bool = True
     include_companies: bool = Field(default=True, description="Incluir empresas sin oferta (correo directo)")
-    max_results: int = Field(default=200, ge=1, le=1000)
+    max_results: int = Field(default=500, ge=1, le=2000)
+    max_webs: int = Field(default=200, ge=0, le=2000, description="Webs de empresas a rastrear como mucho en esta búsqueda")
 
 
 def search_out(s: m.Search) -> dict:
@@ -80,6 +81,14 @@ def _own_search(db: Session, user_id: int, sid: int) -> m.Search:
 @router.get("/searches/{sid}", summary="Estado de una búsqueda")
 def get_search(sid: int, user: m.User = Depends(current_user), db: Session = Depends(get_db)):
     return search_out(_own_search(db, user.id, sid))
+
+
+@router.post("/searches/{sid}/cancel", summary="Detener una búsqueda en marcha (lo ya encontrado se conserva)")
+def cancel_search(sid: int, user: m.User = Depends(current_user), db: Session = Depends(get_db)):
+    s = _own_search(db, user.id, sid)
+    if s.status in ("queued", "running"):
+        s.status = "cancelling"
+    return search_out(s)
 
 
 @router.get("/searches/{sid}/results", summary="Resultados (mejores primero) con la vía decidida para cada uno")

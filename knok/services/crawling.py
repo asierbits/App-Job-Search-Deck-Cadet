@@ -4,7 +4,7 @@ Las descargas se hacen en paralelo (cada web es de un servidor distinto, así no
 las escrituras en la base de datos, en el hilo principal.
 """
 import logging
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 
 from sqlalchemy import select
@@ -56,8 +56,36 @@ def apply_result(db: Session, company: Company, pack: Pack, res: dict) -> dict:
             "warnings": len(res.get("warnings", []))}
 
 
+def summarize(res: dict) -> tuple[str, dict]:
+    """Resumen legible de un rastreo para el panel ("jobs@… · ⚓ mención · página de empleo")."""
+    partes = []
+    if res.get("robots_blocked"):
+        partes.append("su robots.txt no permite leerla")
+    elif res.get("blocked"):
+        partes.append("la web bloquea programas: mírala a mano")
+    elif not res.get("read"):
+        partes.append("la web no responde")
+    if res.get("best_email"):
+        partes.append(res["best_email"])
+    elif res.get("read"):
+        partes.append("sin email genérico")
+    if res.get("mentions"):
+        partes.append("⚓ " + ", ".join(res["mentions"][:2]))
+    if res.get("careers_url"):
+        partes.append("página de empleo")
+    if res.get("ats"):
+        partes.append("formulario " + res["ats"][0]["platform"])
+    if res.get("warnings"):
+        partes.append("⚠ " + ", ".join(sorted({w["type"] for w in res["warnings"]})))
+    found = {"emails": res.get("best_email"), "careers": res.get("careers_url"), "mentions": res.get("mentions"),
+             "warnings": res.get("warnings"), "blocked": res.get("blocked") or res.get("robots_blocked")}
+    return " · ".join(partes), found
+
+
 def crawl_companies(db: Session, companies: list[Company], pack: Pack, http: Http | None = None,
-                    reuse: bool = True) -> dict:
+                    reuse: bool = True, progress=None) -> dict:
+    """Rastrea las webs (6 a la vez). `progress` (opcional) recibe cada web empezada y terminada, y permite
+    detener el rastreo a mitad (lo ya rastreado se guarda)."""
     http = http or default_http()
     rules = CrawlRules.for_pack(pack)
     ua = get_settings().crawler_user_agent
@@ -74,32 +102,55 @@ def crawl_companies(db: Session, companies: list[Company], pack: Pack, http: Htt
             for k in ("new_emails", "ats", "warnings"):
                 stats[k] += r[k]
             stats["careers"] += int(r["careers"])
+            if progress:
+                texto, found = summarize(previo.result)
+                progress.crawled(c.name, texto + " (ya rastreada)", found)
         else:
             pendientes.append((c, dom))
 
-    def uno(par):
-        c, dom = par
+    def uno(c, dom):
+        if progress:
+            progress.started(c.id, c.name)
         try:
-            return par, crawl(http, c.website or f"https://{dom}/", rules, ua)
+            return crawl(http, c.website or f"https://{dom}/", rules, ua)
         except Exception as ex:  # una web rota no para las demás
             log.warning("rastreo %s: %s", dom, ex)
-            return par, None
+            return None
+        finally:
+            if progress:
+                progress.finished(c.id)
 
     with ThreadPoolExecutor(max_workers=PARALLEL) as pool:
-        for (c, dom), res in pool.map(uno, pendientes):
-            if res is None:
-                continue
-            if res.get("read") or res.get("blocked") or res.get("robots_blocked"):
-                estado = "robots" if res.get("robots_blocked") else "blocked" if res.get("blocked") else "ok"
-                fila = db.get(Crawl, (dom, pack.slug)) or Crawl(domain=dom, pack=pack.slug, status=estado)
-                fila.status, fila.result, fila.fetched_at = estado, res, utcnow()
-                db.add(fila)
-            r = apply_result(db, c, pack, res)
-            stats["crawled"] += 1
-            stats["blocked"] += int(bool(res.get("blocked") or res.get("robots_blocked")))
-            for k in ("new_emails", "ats", "warnings"):
-                stats[k] += r[k]
-            stats["careers"] += int(r["careers"])
+        futuros = {pool.submit(uno, c, dom): (c, dom) for c, dom in pendientes}
+        try:
+            for fut in as_completed(futuros):
+                c, dom = futuros[fut]
+                res = fut.result()
+                if res is None:
+                    if progress:
+                        progress.crawled(c.name, "error al leer la web", {})
+                        progress.checkpoint()
+                    continue
+                if res.get("read") or res.get("blocked") or res.get("robots_blocked"):
+                    estado = "robots" if res.get("robots_blocked") else "blocked" if res.get("blocked") else "ok"
+                    fila = db.get(Crawl, (dom, pack.slug)) or Crawl(domain=dom, pack=pack.slug, status=estado)
+                    fila.status, fila.result, fila.fetched_at = estado, res, utcnow()
+                    db.add(fila)
+                r = apply_result(db, c, pack, res)
+                stats["crawled"] += 1
+                stats["blocked"] += int(bool(res.get("blocked") or res.get("robots_blocked")))
+                for k in ("new_emails", "ats", "warnings"):
+                    stats[k] += r[k]
+                stats["careers"] += int(r["careers"])
+                if progress:
+                    texto, found = summarize(res)
+                    progress.crawled(c.name, texto, found)
+                    progress.checkpoint()
+                    progress.check_cancel()
+        except BaseException:
+            for f in futuros:
+                f.cancel()
+            raise
     db.flush()
     return stats
 
