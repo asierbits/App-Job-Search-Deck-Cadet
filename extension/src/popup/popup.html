@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>knok</title>
+  <style>
+    body { font: 13px system-ui, sans-serif; width: 340px; margin: 10px; color: #111; }
+    h1 { font-size: 15px; margin: 0 0 8px; }
+    fieldset { border: 1px solid #ddd; margin: 0 0 10px; padding: 8px; }
+    label { display: block; margin: 4px 0 2px; }
+    input[type=text], input[type=url], input[type=password] { width: 100%; box-sizing: border-box; }
+    button { margin: 4px 4px 0 0; }
+    .aviso { background: #fef3c7; color: #92400e; padding: 6px; border-radius: 4px; margin: 6px 0; }
+    #estado { white-space: pre-wrap; background: #f6f6f6; padding: 6px; min-height: 2em; }
+  </style>
+</head>
+<body>
+  <h1>knok · copiloto</h1>
+  <p class="aviso">knok rellena; <b>tú revisas y pulsas Enviar</b>. Nunca envía nada por su cuenta.</p>
+
+  <fieldset id="conexion">
+    <legend>Conexión</legend>
+    <label>API de knok <input id="apiBase" type="url" placeholder="http://localhost:8000"></label>
+    <label>Token (créalo en tu web: «Token para la extensión») <input id="token" type="password"></label>
+    <button id="conectar">Conectar</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Tanda (~40 solicitudes)</legend>
+    <label>Países (ISO, separados por comas) <input id="paises" type="text" placeholder="es, de, nl"></label>
+    <label>Ciudades <input id="ciudades" type="text" placeholder="Madrid, Berlin"></label>
+    <label>Palabras clave <input id="palabras" type="text" placeholder="python, backend"></label>
+    <button id="iniciar">Iniciar búsqueda</button>
+    <button id="detener">Detener</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Esta página</legend>
+    <button id="rellenar">Rellenar esta página</button>
+    <button id="capturar">Guardar oferta en knok</button>
+    <p class="aviso" id="avisoLinkedin" hidden>LinkedIn prohíbe automatizar la cuenta aunque pulses tú cada paso:
+      úsalo de una en una y con pausas. Hay riesgo de restricción.</p>
+  </fieldset>
+
+  <div id="estado">—</div>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

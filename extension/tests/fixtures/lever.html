@@ -1,0 +1,24 @@
+<!doctype html><html><head><title>Naviera Nordsee - Trainee Officer</title></head><body>
+<div class="posting-headline"><h2>Trainee Officer (Deck)</h2><div class="posting-categories"><div class="location">Hamburg</div></div></div>
+<form id="application-form" class="application-form">
+  <ul>
+    <li class="application-question"><div class="application-label">Full name<span class="required">✱</span></div>
+      <div class="application-field"><input type="text" name="name" required></div></li>
+    <li class="application-question"><div class="application-label">Email<span class="required">✱</span></div>
+      <div class="application-field"><input type="email" name="email" required></div></li>
+    <li class="application-question"><div class="application-label">Current company</div>
+      <div class="application-field"><input type="text" name="org"></div></li>
+    <li class="application-question"><div class="application-label">LinkedIn URL</div>
+      <div class="application-field"><input type="text" name="urls[LinkedIn]"></div></li>
+    <li class="application-question"><div class="application-label">Resume/CV ✱</div>
+      <div class="application-field"><input type="file" name="resume" required></div></li>
+    <li class="application-question"><div class="application-label">Additional information</div>
+      <div class="application-field"><textarea name="comments"></textarea></div></li>
+  </ul>
+  <button type="submit" class="postings-btn">Submit application</button>
+</form>
+<script>
+  window.contadores = { submit: 0 };
+  document.getElementById('application-form').addEventListener('submit', (e) => { e.preventDefault(); window.contadores.submit++; });
+</script>
+</body></html>
