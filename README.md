@@ -23,6 +23,13 @@ conecta a esta API. Incluye una extensión de Chrome (modo copiloto) que habla c
 
 ## Arrancar en local
 
+### La forma fácil
+
+1. Instala y abre **Docker Desktop**.
+2. Doble clic en **`iniciar.bat`** (Windows) o ejecuta `./iniciar.sh` (Mac/Linux).
+3. Se abre <http://localhost:8000/playground>. La primera vez arranca en **modo de prueba sin red** (datos de
+   ejemplo, no sale ningún correo). Para pararlo: `detener.bat` o `docker compose down`.
+
 ### Opción A · Docker (todo incluido)
 
 ```bash
