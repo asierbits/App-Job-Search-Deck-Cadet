@@ -22,7 +22,8 @@ catalog = APIRouter(tags=["catalog"])
 class SearchIn(BaseModel):
     pack: str = Field(default="", description="Por defecto, el del perfil")
     countries: list[str] = Field(default=[], description="ISO alfa-2; vacío = los del pack")
-    cities: list[str] = []
+    cities: list[str] = Field(default=[], description="También se buscan empresas en OpenStreetMap alrededor de ellas")
+    radius_km: float = Field(default=10, ge=1, le=100)
     keywords: list[str] = Field(default=[], description="Si las das, cada oferta debe contener alguna")
     sources: list[Literal["ats", "adzuna", "infojobs", "companies", "sample"]] = Field(
         default=[], description="Vacío = todas las disponibles")

@@ -10,7 +10,7 @@ Dos mundos separados:
 from datetime import datetime, timezone
 
 from sqlalchemy import (JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text,
-                        UniqueConstraint, text)
+                        TypeDecorator, UniqueConstraint, text)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -24,6 +24,22 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class UTCDateTime(TypeDecorator):
+    """Fecha con zona horaria, siempre en UTC al leer (SQLite la devuelve sin zona; Postgres con ella)."""
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is not None and value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None and value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -33,7 +49,7 @@ def _pk():
 
 
 def _created():
-    return mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    return mapped_column(UTCDateTime, default=utcnow, nullable=False)
 
 
 # =====================================================================================  usuarios
@@ -59,8 +75,8 @@ class ApiToken(Base):
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     prefix: Mapped[str] = mapped_column(String(12), nullable=False)
     created_at: Mapped[datetime] = _created()
-    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
 
 
 class OAuthAccount(Base):
@@ -74,7 +90,7 @@ class OAuthAccount(Base):
     scopes: Mapped[str] = mapped_column(Text, nullable=False, default="")
     access_token_enc: Mapped[str] = mapped_column(Text, nullable=False, default="")
     refresh_token_enc: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     created_at: Mapped[datetime] = _created()
 
 
@@ -106,7 +122,7 @@ class Profile(Base):
     pause_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=45)
     followup_days: Mapped[int] = mapped_column(Integer, nullable=False, default=7)
     inbound_token: Mapped[str] = mapped_column(String(32), nullable=False, default="")  # reenvío de respuestas
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     user: Mapped[User] = relationship(back_populates="profile")
 
@@ -135,7 +151,7 @@ class Answer(Base):
     key: Mapped[str] = mapped_column(String(80), nullable=False)
     language: Mapped[str] = mapped_column(String(8), nullable=False, default="")
     value: Mapped[object] = mapped_column(Json, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
 
 class CustomAnswer(Base):
@@ -147,7 +163,7 @@ class CustomAnswer(Base):
     label: Mapped[str] = mapped_column(Text, nullable=False)
     label_norm: Mapped[str] = mapped_column(String(400), nullable=False)
     value: Mapped[object] = mapped_column(Json, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
 
 class Template(Base):
@@ -161,7 +177,7 @@ class Template(Base):
     language: Mapped[str] = mapped_column(String(8), nullable=False)
     subject: Mapped[str] = mapped_column(Text, nullable=False, default="")
     body: Mapped[str] = mapped_column(Text, nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
 
 # =====================================================================================  base común
@@ -186,7 +202,7 @@ class Company(Base):
     sources: Mapped[list] = mapped_column(Json, nullable=False, default=list)     # fuentes que la aportaron
     flags: Mapped[dict] = mapped_column(Json, nullable=False, default=dict)       # bloqueada, menciones, avisos…
     created_at: Mapped[datetime] = _created()
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
     emails: Mapped[list["CompanyEmail"]] = relationship(back_populates="company", cascade="all, delete-orphan")
 
@@ -202,7 +218,7 @@ class CompanyEmail(Base):
     on_careers_page: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     source: Mapped[str] = mapped_column(String(60), nullable=False, default="")
     found_at: Mapped[datetime] = _created()
-    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
     company: Mapped[Company] = relationship(back_populates="emails")
 
@@ -228,7 +244,7 @@ class AtsBoard(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")  # pending | active | empty | invalid
     jobs_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     discovered_from: Mapped[str] = mapped_column(String(40), nullable=False, default="manual")
-    last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_checked_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     created_at: Mapped[datetime] = _created()
 
 
@@ -259,10 +275,10 @@ class Job(Base):
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, default="")
     canonical_job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
     raw: Mapped[dict] = mapped_column(Json, nullable=False, default=dict)
-    posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    posted_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     first_seen_at: Mapped[datetime] = _created()
-    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    closed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
 
     company: Mapped[Company | None] = relationship()
 
@@ -309,7 +325,7 @@ class UnknownQuestion(Base):
     times_seen: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     mapped_key: Mapped[str] = mapped_column(String(80), nullable=False, default="")
     first_seen_at: Mapped[datetime] = _created()
-    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
 # =====================================================================================  trabajo del usuario
@@ -323,7 +339,7 @@ class Search(Base):
     stats: Mapped[dict] = mapped_column(Json, nullable=False, default=dict)
     error: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[datetime] = _created()
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
 
 
 class SearchResult(Base):
@@ -379,11 +395,11 @@ class Application(Base):
     warnings: Mapped[list] = mapped_column(Json, nullable=False, default=list)
     notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
     created_at: Mapped[datetime] = _created()
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
-    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    follow_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    last_status_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
+    confirmed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    sent_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    follow_up_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    last_status_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
     job: Mapped[Job | None] = relationship()
     company: Mapped[Company | None] = relationship()
@@ -409,7 +425,7 @@ class Email(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="queued")   # queued | sending | sent | error | cancelled
     error: Mapped[str] = mapped_column(Text, nullable=False, default="")
     queued_at: Mapped[datetime] = _created()
-    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sent_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
 
 
 class Reply(Base):
@@ -433,7 +449,7 @@ class SimulatedReply(Base):
     id: Mapped[int] = _pk()
     email_id: Mapped[int] = mapped_column(ForeignKey("emails.id", ondelete="CASCADE"))
     kind: Mapped[str] = mapped_column(String(20), nullable=False)
-    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    due_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
 
 
 class Event(Base):
@@ -442,7 +458,7 @@ class Event(Base):
     __table_args__ = (Index("ix_events_user_ts", "user_id", "ts"),)
     id: Mapped[int] = _pk()
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    ts: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
     level: Mapped[str] = mapped_column(String(10), nullable=False, default="info")   # info | ok | warning | error
     message: Mapped[str] = mapped_column(Text, nullable=False)
     data: Mapped[dict] = mapped_column(Json, nullable=False, default=dict)
@@ -461,10 +477,10 @@ class Task(Base):
     status: Mapped[str] = mapped_column(String(12), nullable=False, default="queued")   # queued | running | done | failed | cancelled
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
-    run_after: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
-    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    run_after: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, nullable=False)
+    locked_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     locked_by: Mapped[str] = mapped_column(String(80), nullable=False, default="")
     last_error: Mapped[str] = mapped_column(Text, nullable=False, default="")
     result: Mapped[dict] = mapped_column(Json, nullable=False, default=dict)
     created_at: Mapped[datetime] = _created()
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime)

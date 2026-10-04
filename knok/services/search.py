@@ -128,7 +128,8 @@ def run_search_task(db: Session, payload: dict) -> dict:
             resultados = rank_jobs(db, search, pack, profile)
             if search.params.get("include_companies", True):
                 from knok.services.prospecting import rank_companies
-                resultados += rank_companies(db, search, pack, profile)
+                resultados += rank_companies(db, search, pack, profile,
+                                             {r.company_id for r in resultados if r.company_id})
             resultados.sort(key=lambda r: -r.score)
             maximo = int(search.params.get("max_results") or 200)
             rutas: dict[str, int] = {}

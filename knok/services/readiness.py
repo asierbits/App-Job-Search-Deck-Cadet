@@ -20,6 +20,6 @@ def sending_problems(db: Session, profile: Profile) -> list[dict]:
     if profile.mode == "test" and not (profile.email or "").strip():
         p.append({"code": "missing_email", "message": "Falta tu email (en modo prueba los correos te llegan a ti)."})
     tiene_cv = db.scalar(select(Document.id).where(Document.user_id == profile.user_id, Document.kind == "cv").limit(1))
-    if not tiene_cv:
+    if not tiene_cv and profile.mode in ("test", "live"):  # en Simulación se puede probar sin CV
         p.append({"code": "missing_cv", "message": "Sube tu CV en Documentos."})
     return p

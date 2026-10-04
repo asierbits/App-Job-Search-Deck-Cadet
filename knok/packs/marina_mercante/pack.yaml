@@ -53,8 +53,8 @@ crawl:
     - {label: "alumno de puente en prácticas", variants: ["alumno de puente en practicas", "alumnos de puente en practicas"]}
     - {label: "alumno de puente", variants: ["alumno de puente", "alumnos de puente"]}
     - {label: "alumno en prácticas", variants: ["alumno en practicas", "alumnos en practicas"]}
-    - {label: "deck cadet", variants: ["deck cadet"]}
-    - {label: "deck apprentice", variants: ["deck apprentice"]}
+    - {label: "deck cadet", variants: ["deck cadet", "deck cadets"]}
+    - {label: "deck apprentice", variants: ["deck apprentice", "deck apprentices"]}
     - {label: "engine cadet (máquinas)", variants: ["engine cadet", "engineer cadet", "alumno de maquinas", "alumnos de maquinas"]}
     - {label: "cadet", variants: ["cadet", "cadets", "cadetship", "cadete", "cadetes"]}
     - {label: "trainee officer", variants: ["trainee officer", "officer trainee", "deck trainee"]}

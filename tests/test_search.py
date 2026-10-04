@@ -134,3 +134,18 @@ def test_puntuacion_explicable():
     no = score_job(title="Police cadet", description="police cadet program", country="es", city="", remote=False,
                    posted_at=None, match=get_pack("marina_mercante").match, keywords=[], countries=["es"], cities=[])
     assert not no.matched
+
+
+def test_busqueda_incluye_empresas_sin_oferta(client, auth):
+    r = client.post("/searches", headers=auth, json={"countries": ["es"], "cities": ["Valencia"]})
+    res = client.get(f"/searches/{r.json()['id']}/results?limit=200", headers=auth).json()
+    solo_empresa = {i["company"]["name"]: i for i in res["items"] if i["job"] is None}
+    cm = solo_empresa["Contenedores Mediterráneo"]
+    assert cm["route"] == "email" and any("cadetes@contemed.example.com" in x for x in cm["reasons"])
+    assert any("en Valencia" in x for x in cm["reasons"])
+    assert "Remolcadores del Puerto" not in solo_empresa             # solo tenía un correo personal
+    assert solo_empresa["Navieras del Sur (solo web)"]["route"] == "manual"
+    assert "Naviera Cantábrica de Ferris" not in solo_empresa        # ya sale con su oferta
+    assert "Fjord Line Ferries AS" not in solo_empresa               # Noruega fuera de la búsqueda
+    empresa = client.get(f"/companies/{cm['company']['id']}", headers=auth).json()
+    assert [e["email"] for e in empresa["emails"]] == ["cadetes@contemed.example.com"]

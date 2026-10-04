@@ -44,9 +44,9 @@ def current_user(request: Request, cred: HTTPAuthorizationCredentials | None = D
         raise ApiError(401, "unauthenticated", "Falta el token de acceso (Authorization: Bearer …)")
     tok = db.scalar(select(ApiToken).where(ApiToken.token_hash == hash_token(cred.credentials)))
     ahora = utcnow()
-    if tok is None or (tok.expires_at and _aware(tok.expires_at) < ahora):
+    if tok is None or (tok.expires_at and tok.expires_at < ahora):
         raise ApiError(401, "invalid_token", "Token no válido o caducado")
-    if tok.last_used_at is None or ahora - _aware(tok.last_used_at) > timedelta(minutes=5):
+    if tok.last_used_at is None or ahora - tok.last_used_at > timedelta(minutes=5):
         tok.last_used_at = ahora
     user = db.get(User, tok.user_id)
     request.state.token_id = tok.id
@@ -67,8 +67,3 @@ def require_admin(user: User = Depends(current_user)) -> User:
         raise ApiError(403, "forbidden", "Solo para administradores")
     return user
 
-
-def _aware(dt):
-    # SQLite devuelve fechas sin zona; Postgres con zona. Se comparan siempre en UTC.
-    from datetime import timezone
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
