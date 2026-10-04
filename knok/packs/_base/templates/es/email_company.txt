@@ -1,0 +1,14 @@
+Subject: Candidatura espontánea - {nombre}
+
+Estimado equipo de {empresa}:
+
+Mi nombre es {nombre} y me pongo en contacto con ustedes porque me gustaría formar parte de {empresa}. Les adjunto mi currículum por si encajo en alguna posición actual o futura.
+
+Tengo disponibilidad para hablar cuando les venga bien.
+
+Muchas gracias por su atención.
+
+Un saludo,
+{nombre}
+{telefono}
+{linkedin}

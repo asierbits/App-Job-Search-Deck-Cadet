@@ -1,0 +1,28 @@
+# Preguntas típicas del nicho: claves extra del banco de respuestas y cómo reconocerlas en un formulario.
+- key: stcw_certificates
+  label: {es: Certificados STCW, en: STCW certificates}
+  type: textarea
+  patterns:
+    es: [stcw, certificados de especialidad, formacion basica]
+    en: [stcw, basic safety training, certificates of proficiency]
+- key: seaman_book
+  label: {es: Libreta marítima (número / país), en: Seaman's book (number / country)}
+  patterns:
+    es: [libreta maritima, libreta de inscripcion maritima]
+    en: [seaman's book, seamans book, seaman book, discharge book, cdc]
+- key: medical_certificate
+  label: {es: Certificado médico marítimo (vigencia), en: Seafarer medical certificate (expiry)}
+  patterns:
+    es: [certificado medico, reconocimiento medico maritimo]
+    en: [medical certificate, eng1, medical fitness]
+- key: sea_time_months
+  label: {es: Meses de embarque realizados, en: Sea time completed (months)}
+  type: number
+  patterns:
+    es: [meses de embarque, tiempo de mar, dias de mar]
+    en: [sea time, sea service, months at sea, days at sea]
+- key: passport_expiry
+  label: {es: Pasaporte (caducidad), en: Passport expiry}
+  patterns:
+    es: [caducidad del pasaporte, pasaporte valido]
+    en: [passport expiry, passport valid until, passport expiration]

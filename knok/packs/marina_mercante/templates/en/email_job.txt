@@ -1,0 +1,14 @@
+Subject: Application: {puesto} - {nombre}
+
+Dear {empresa} team,
+
+My name is {nombre} and I have recently completed my {titulacion} at {universidad}. I am writing to apply for the {puesto} position.
+
+I am available to embark immediately and have attached my CV with my training and certificates.
+
+I would welcome the opportunity to discuss my application in an interview.
+
+Kind regards,
+{nombre}
+{telefono}
+{linkedin}

@@ -1,0 +1,10 @@
+Subject: Re: {asunto}
+
+Estimado equipo de {empresa}:
+
+Les escribo para hacer seguimiento de la candidatura que les envié hace unos días. Sigo muy interesado en {empresa} y quedo a su disposición si necesitan cualquier información adicional.
+
+Muchas gracias.
+
+Un saludo,
+{nombre}

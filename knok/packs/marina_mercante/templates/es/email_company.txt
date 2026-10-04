@@ -1,0 +1,16 @@
+Subject: Solicitud de embarque como alumno de puente - {nombre}
+
+Estimado equipo de {empresa}:
+
+Mi nombre es {nombre} y he finalizado el {titulacion} en la {universidad}. Me pongo en contacto con ustedes porque busco embarque como alumno de puente para realizar el periodo de prácticas a bordo necesario para obtener mi título profesional.
+
+Me encantaría poder hacerlo en su flota. Tengo disponibilidad inmediata para embarcar y les adjunto mi currículum con mi formación y certificados.
+
+Quedo a su disposición para ampliar cualquier información o para una entrevista.
+
+Muchas gracias por su atención.
+
+Un saludo,
+{nombre}
+{telefono}
+{linkedin}

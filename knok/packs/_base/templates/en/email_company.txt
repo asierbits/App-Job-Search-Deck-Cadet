@@ -1,0 +1,14 @@
+Subject: Speculative application - {nombre}
+
+Dear {empresa} team,
+
+My name is {nombre} and I am writing because I would love to join {empresa}. Please find my CV attached in case my profile fits any current or future opening.
+
+I am happy to talk whenever suits you.
+
+Thank you for your time.
+
+Kind regards,
+{nombre}
+{telefono}
+{linkedin}

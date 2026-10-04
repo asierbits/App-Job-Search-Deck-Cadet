@@ -1,0 +1,13 @@
+Subject: Interés en plazas de doctorado - {nombre}
+
+Estimado equipo de {empresa}:
+
+Mi nombre es {nombre} y he finalizado el {titulacion} en la {universidad}. Me pongo en contacto con ustedes porque me interesa realizar un doctorado en {area} y me gustaría saber si tienen plazas abiertas o previstas en sus grupos de investigación.
+
+Les adjunto mi currículum. Quedo a su disposición para ampliar cualquier información.
+
+Muchas gracias por su atención.
+
+Un saludo,
+{nombre}
+{email}

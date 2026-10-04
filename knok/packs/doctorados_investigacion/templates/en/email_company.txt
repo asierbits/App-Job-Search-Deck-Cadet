@@ -1,0 +1,13 @@
+Subject: Enquiry about PhD positions - {nombre}
+
+Dear {empresa} team,
+
+My name is {nombre} and I have recently completed my {titulacion} at {universidad}. I am writing because I am interested in pursuing a PhD in {area}, and I would like to know whether any positions are open or planned in your research groups.
+
+Please find my CV attached. I would be happy to provide any further information.
+
+Thank you for your time.
+
+Kind regards,
+{nombre}
+{email}

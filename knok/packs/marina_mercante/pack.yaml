@@ -1,0 +1,116 @@
+# Marina mercante: alumnos de puente (Deck Cadet) buscando embarque en navieras.
+# Migrado del programa anterior (legacy/core/maritimo.py, webemail.py y correo.py).
+slug: marina_mercante
+version: 1
+names: {es: Marina mercante (alumnos de puente), en: Merchant navy (deck cadets)}
+description:
+  es: Embarque como alumno de puente en navieras y agencias de tripulación, sobre todo en Europa.
+  en: Deck cadet berths with shipping companies and crewing agencies, mainly in Europe.
+languages: [es, en]
+
+profile_fields:
+  - {key: titulacion, label: {es: Titulación, en: Degree}, localized: true}
+  - {key: universidad, label: {es: Universidad / escuela náutica, en: University / nautical school}}
+
+sources:
+  default_countries: [es, pt, fr, it, de, nl, be, ie, gb, dk, se, "no", fi, gr, cy, mt, pl, hr]
+  wikidata:
+    countries: [es, pt, fr, it, de, nl, be, lu, ie, gb, dk, se, "no", fi, is, pl, ee, lv, lt, gr, cy, mt, hr, si, ro, bg, ch, mc]
+    queries:
+      - {label: Naviera, where: "?item wdt:P31 wd:Q1807108 ."}
+      - {label: Cruceros, where: "?item wdt:P31 wd:Q946499 ."}
+      - {label: Transporte marítimo, where: "?item wdt:P452 wd:Q155930 ."}
+  directories:
+    - {url: "https://www.anave.es/images/informes/empresas_navieras/anave_empresas_navieras.pdf", country: es}
+    - {url: "https://www.reederverband.de/der-vdr/mitgliederverzeichnis/", country: de}
+    - {url: "https://www.rederi.no/vare-medlemmer/", country: "no"}
+    - {url: "https://www.armateursdefrance.org/adherents/", country: fr}
+    - {url: "https://interferry.com/interferry-public-member-list/"}
+  osm:
+    tags:
+      office: [shipping_agent, company, employment_agency]
+    agency_tags: ["office=employment_agency"]
+    sector_labels: {shipping_agent: Agente marítimo, company: Empresa, employment_agency: Agencia de tripulación}
+  adzuna:
+    what: ["deck cadet", "trainee officer", "cadet officer"]
+    countries: [gb, nl, de, es]
+  infojobs:
+    q: ["alumno de puente", "piloto de la marina mercante", "oficial de puente"]
+
+crawl:
+  page_keywords: [cadet, cadete, kadett, trainee, alumno, seafarer, crewing, crew, tripulacion, tripulación,
+                  embarque, sea-career, career-at-sea, careers-at-sea, working-at-sea, fleet-personnel,
+                  marine-personnel, seagoing, offshore-career]
+  mailbox_priority: [cadet, cadets, crewing, crew, manning, seafarer, marinehr, marine.hr, tripulacion,
+                     flota, fleet, personal.flota, jobs, job, careers, career, karriere, bewerbung, empleo,
+                     rrhh, hr, recruiting, recruitment, talent, seleccion, people, personal, practicas,
+                     internship, trainee]
+  extra_generic: [cadet, cadets, crewing, crew, manning, seafarer, marinehr, tripulacion, flota, fleet, alumnos]
+  commercial: [chartering, chart, operations, operaciones, carga, cargo, freight, fletes, traffic, trafico,
+               booking, reservas, reservations, tickets, billetes]
+  mentions:
+    - {label: "alumno de puente en prácticas", variants: ["alumno de puente en practicas", "alumnos de puente en practicas"]}
+    - {label: "alumno de puente", variants: ["alumno de puente", "alumnos de puente"]}
+    - {label: "alumno en prácticas", variants: ["alumno en practicas", "alumnos en practicas"]}
+    - {label: "deck cadet", variants: ["deck cadet"]}
+    - {label: "deck apprentice", variants: ["deck apprentice"]}
+    - {label: "engine cadet (máquinas)", variants: ["engine cadet", "engineer cadet", "alumno de maquinas", "alumnos de maquinas"]}
+    - {label: "cadet", variants: ["cadet", "cadets", "cadetship", "cadete", "cadetes"]}
+    - {label: "trainee officer", variants: ["trainee officer", "officer trainee", "deck trainee"]}
+    - {label: "kadett / praktikant", variants: ["kadett", "praktikant"]}
+    - {label: "élève officier", variants: ["eleve officier"]}
+    - {label: "allievo ufficiale", variants: ["allievo ufficiale"]}
+  career_signals:
+    - label: empleo embarcado / offshore
+      terms: ["seafarers?", seagoing, sea staff, sea-based, sea based, at sea, onboard, on board, offshore,
+              "crew members?", crewing, marine crew, "deck officers?", officer of the watch, "able seam[ae]n",
+              ratings, "sea careers?", career at sea, careers at sea, working at sea, "embarcad[oa]s?", a bordo,
+              tripulacion, "tripulantes?", "oficial(?:es)? de puente", personal de flota, personal embarcado,
+              "seefahrend\\w*", an bord, personnel navigant, "navigants?", a bord, bordpersonal, sjofolk, til sjos]
+  warnings:
+    # MLC 2006 (regla 1.4): las agencias no pueden cobrar a los marinos por buscarles embarque
+    cobro: ["registration fee", "processing fee", "placement fee", "agency fee", "application fee",
+            "recruitment fee", "training fee", "manning fee", "crewing fee", "embarkation fee",
+            "fee for (?:the )?(?:placement|employment|embarkation|registration)", "pay (?:a|the) fee",
+            "tasa de (?:inscripcion|registro|gestion)", "cuota de (?:inscripcion|registro|alta)",
+            "gastos de gestion", "pago previo", "precio del embarque", "coste del embarque",
+            "debe(?:ra|s)? (?:abonar|pagar)", "vermittlungsgebuhr", "anmeldegebuhr", "frais d'inscription"]
+    ucrania: ["\\bodes{1,2}a\\b", "\\bmykolaiv\\b", "\\bnikolaev\\b", "\\bizmail\\b", "\\bchornomorsk\\b",
+              "\\bkherson\\b", "\\bmariupol\\b", "\\bberdyansk\\b", "\\bkyiv\\b", "\\bkiev\\b",
+              "\\b(?:in|from|based in|office in|offices in) ukraine\\b", "\\bukraine (?:office|branch|ltd|llc)\\b",
+              "\\bukrainian (?:company|shipowner|owner|agency|crewing|manning|flag)\\b",
+              "\\ben ucrania\\b", "\\bempresa ucraniana\\b", "\\bagencia ucraniana\\b"]
+    mar_negro: ["\\bblack sea\\b", "\\bmar negro\\b", "\\bschwarze[sn]? meer\\b", "\\bmer noire\\b", "\\bmar nero\\b",
+                "\\bsea of azov\\b", "\\bmar de azov\\b", "\\bazov\\b", "\\bnovorossiysk\\b", "\\bkerch\\b",
+                "\\bsevastopol\\b", "\\bcrimea\\b", "\\bconflict zone\\b", "\\bwar risk area\\b",
+                "\\bhigh risk area\\b", "\\bzona de conflicto\\b"]
+  warnings_on_careers_only: [cobro]
+  exclude_names: ["associa\\w*", "asociaci\\w*", "federa\\w*", "organi[sz]ation", "organizaci\\w*", union, unión,
+                  council, consejo, chamber, cámara, society, "institut\\w*", "universit\\w*", "academ\\w*", school,
+                  escuela, college, "ministr\\w*", "authorit\\w*", autoridad, port authority, ports, puertos,
+                  register, registro, classification, dnv, bureau veritas, "lloyd'?s register", rina, abs, "p&i",
+                  insurance, seguros, versicherung, bank, banco, law, legal, abogados, solicitors, shipyard,
+                  "astillero\\w*", werft, "naval architect\\w*", design, software, systems, solutions,
+                  "consult\\w*", "broker\\w*", conference, magazine, news, media, journal, interferry]
+  exclude_domains: [interferryconference, ecsa.eu, imo.org, cruising.org, ics-shipping, bimco]
+  allowed_countries: [es, pt, fr, it, de, nl, be, lu, ie, gb, dk, se, "no", fi, is, pl, ee, lv, lt, gr, cy, mt,
+                      hr, si, ro, bg, ch, mc, at, cz, sk, hu, rs, me, al, ba, mk, ua, ad, sm, li]
+
+match:
+  title_keywords:
+    es: [alumno de puente, alumno de maquinas, cadete, piloto, oficial de puente, marinero]
+    en: [deck cadet, cadet, trainee officer, officer of the watch, deck officer, able seaman]
+  keywords:
+    es: [buque, naviera, embarque, marina mercante, stcw, tripulacion, a bordo]
+    en: [vessel, ship, shipping, seafarer, stcw, crew, onboard, sea service, maritime]
+  negative: [cadet program in finance, police cadet, air cadet, army cadet]
+
+reply_keywords:
+  rejection: ["no disponemos de plazas", "no tenemos plazas", "no admitimos alumnos", "no embarcamos alumnos",
+              "no cadet", "no vacancies for cadets", "cadet positions are filled", "no berths"]
+  interview: ["embarcar el", "podrías embarcar", "podrias embarcar", "fecha de embarque", "join the vessel",
+              "sign on", "signing on", "embarkation date"]
+  info: ["libreta marítima", "libreta maritima", "certificado médico", "certificados stcw", "crew portal",
+         "crewing portal", "cadet programme", "cadet program", "stcw", "seaman's book"]
+
+sample_data: sample.json

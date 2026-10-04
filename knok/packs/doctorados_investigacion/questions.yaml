@@ -1,0 +1,33 @@
+- key: research_proposal
+  label: {es: Propuesta / motivación de investigación, en: Research proposal / statement}
+  type: textarea
+  patterns:
+    es: [propuesta de investigacion, carta de motivacion, interes investigador]
+    en: [research proposal, research statement, statement of purpose, research interests, motivation letter]
+- key: supervisor
+  label: {es: Director/a de tesis propuesto, en: Proposed supervisor}
+  patterns:
+    es: [director de tesis, directora de tesis, tutor propuesto]
+    en: [supervisor, proposed supervisor, potential supervisor, advisor]
+- key: publications
+  label: {es: Publicaciones, en: Publications}
+  type: textarea
+  patterns:
+    es: [publicaciones]
+    en: [publications, list of publications]
+- key: gpa
+  label: {es: Nota media del expediente, en: GPA / average grade}
+  patterns:
+    es: [nota media, expediente academico]
+    en: [gpa, grade point average, average grade, final grade]
+- key: master_thesis
+  label: {es: Trabajo fin de máster, en: Master's thesis}
+  patterns:
+    es: [trabajo fin de master, tfm]
+    en: [master thesis, master's thesis, dissertation title]
+- key: referees
+  label: {es: Personas de referencia, en: Referees}
+  type: textarea
+  patterns:
+    es: [referencias, cartas de recomendacion, personas de contacto]
+    en: [referees, references, recommendation letters, letters of recommendation]

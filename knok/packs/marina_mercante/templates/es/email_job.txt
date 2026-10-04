@@ -1,0 +1,14 @@
+Subject: Candidatura: {puesto} - {nombre}
+
+Estimado equipo de {empresa}:
+
+Mi nombre es {nombre} y he finalizado el {titulacion} en la {universidad}. Les escribo para presentar mi candidatura al puesto de {puesto}.
+
+Tengo disponibilidad inmediata para embarcar y les adjunto mi currículum con mi formación y certificados.
+
+Quedo a su disposición para una entrevista.
+
+Un saludo,
+{nombre}
+{telefono}
+{linkedin}

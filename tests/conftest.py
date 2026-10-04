@@ -70,3 +70,14 @@ def fixture_text(rel: str) -> str:
 def fixture_json(rel: str):
     import json
     return json.loads(fixture_text(rel))
+
+
+def register(client, email="ana@example.com", password="contraseña-segura", pack="marina_mercante"):
+    r = client.post("/auth/register", json={"email": email, "password": password, "pack": pack})
+    assert r.status_code == 201, r.text
+    return {"Authorization": f"Bearer {r.json()['token']}"}
+
+
+@pytest.fixture
+def auth(client):
+    return register(client)

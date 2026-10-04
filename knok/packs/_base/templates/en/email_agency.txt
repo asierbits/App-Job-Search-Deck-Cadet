@@ -1,0 +1,12 @@
+Subject: Application - {nombre}
+
+Dear {empresa} team,
+
+My name is {nombre} and I would be grateful if you could consider my profile for the recruitment processes you manage. Please find my CV attached.
+
+Thank you very much.
+
+Kind regards,
+{nombre}
+{telefono}
+{linkedin}

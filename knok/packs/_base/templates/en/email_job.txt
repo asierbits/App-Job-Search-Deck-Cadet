@@ -1,0 +1,14 @@
+Subject: Application: {puesto} - {nombre}
+
+Dear {empresa} team,
+
+I am writing to apply for the {puesto} position. Please find attached my CV with my education and experience.
+
+I would be glad to provide any further information or to arrange an interview.
+
+Thank you for your time and consideration.
+
+Kind regards,
+{nombre}
+{telefono}
+{linkedin}

@@ -39,4 +39,4 @@ include = ["knok*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-filterwarnings = ["ignore::DeprecationWarning"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore:Using `httpx`"]
