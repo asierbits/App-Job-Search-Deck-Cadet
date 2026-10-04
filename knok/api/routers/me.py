@@ -13,7 +13,8 @@ from knok.core.filling.fields import is_sensitive
 from knok.core.mail.compose import blocking_missing, render, template_values
 from knok.core.text import norm
 from knok.db import models as m
-from knok.packs.loader import all_packs, answer_keys_for, pack_or_default
+from knok.packs.loader import answer_keys_for, pack_or_default
+from knok.services.niches import pack_allowed
 from knok.security import verify_password
 from knok.services.readiness import MODES, google_account, sending_problems
 from knok.services.templates import AUDIENCES, KINDS, effective_template, profile_dict
@@ -90,9 +91,9 @@ def me(user: m.User = Depends(current_user), profile: m.Profile = Depends(curren
 
 
 @router.patch("/profile", response_model=ProfileOut, summary="Actualizar perfil y ajustes")
-def update_profile(data: ProfilePatch, profile: m.Profile = Depends(current_profile)):
+def update_profile(data: ProfilePatch, profile: m.Profile = Depends(current_profile), db: Session = Depends(get_db)):
     cambios = data.model_dump(exclude_unset=True)
-    if "pack" in cambios and cambios["pack"] not in all_packs():
+    if "pack" in cambios and not pack_allowed(db, cambios["pack"], profile.user_id):
         raise ApiError(422, "unknown_pack", f"Pack desconocido: {cambios['pack']}")
     tope = get_settings().gmail_daily_cap
     if cambios.get("daily_limit") and cambios["daily_limit"] > tope:

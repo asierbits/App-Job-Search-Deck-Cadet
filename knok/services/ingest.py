@@ -21,8 +21,8 @@ from knok.db.models import AtsBoard, Company, CompanyEmail, Job, utcnow
 
 def pack_roles(pack_slug: str) -> frozenset[str]:
     """Buzones de rol propios del nicho (los que defina cada pack) que también cuentan como genéricos."""
-    from knok.packs.loader import all_packs
-    p = all_packs().get(pack_slug)
+    from knok.packs.loader import find_pack
+    p = find_pack(pack_slug)
     return frozenset(p.crawl.extra_generic + p.crawl.mailbox_priority) if p else frozenset()
 
 

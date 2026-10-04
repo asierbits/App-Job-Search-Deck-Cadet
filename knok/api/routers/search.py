@@ -10,7 +10,7 @@ from knok.api.deps import ApiError, current_profile, current_user, get_db, not_f
 from knok.core.sources.adzuna import ATTRIBUTION
 from knok.core.sources.ats.detect import PLATFORMS, detect
 from knok.db import models as m
-from knok.packs.loader import all_packs
+from knok.services.niches import pack_allowed
 from knok.services import ingest
 from knok.services.companies import company_summary
 from knok.services.search import ALL_SOURCES, create_search
@@ -57,7 +57,7 @@ def job_summary(j: m.Job | None, full: bool = False) -> dict | None:
 
 @router.post("/searches", status_code=202, summary="Lanzar una búsqueda (no envía nada)")
 def new_search(data: SearchIn, profile: m.Profile = Depends(current_profile), db: Session = Depends(get_db)):
-    if data.pack and data.pack not in all_packs():
+    if data.pack and not pack_allowed(db, data.pack, profile.user_id):
         raise ApiError(422, "unknown_pack", f"Pack desconocido: {data.pack}")
     params = data.model_dump()
     params["countries"] = [c.lower() for c in data.countries]

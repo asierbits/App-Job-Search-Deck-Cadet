@@ -166,6 +166,19 @@ class CustomAnswer(Base):
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
 
 
+class Niche(Base):
+    """Nicho creado por el usuario desde el panel (sectores, palabras clave, términos a detectar…).
+    Se convierte en un pack igual que los de knok/packs/ (ver knok/packs/custom.py)."""
+    __tablename__ = "niches"
+    id: Mapped[int] = _pk()
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    slug: Mapped[str] = mapped_column(String(60), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    spec: Mapped[dict] = mapped_column(Json, nullable=False, default=dict)
+    created_at: Mapped[datetime] = _created()
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow, onupdate=utcnow)
+
+
 class Template(Base):
     """Plantillas propias del usuario. Si no tiene, se usan las del pack."""
     __tablename__ = "templates"

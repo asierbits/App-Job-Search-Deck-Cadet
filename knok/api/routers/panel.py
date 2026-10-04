@@ -15,7 +15,8 @@ from knok.core.emails.score import MailboxRules, best
 from knok.db import models as m
 from knok.packs.loader import all_packs, pack_or_default
 from knok.services import applications as svc
-from knok.services import inbox, tracking
+from knok.packs import custom
+from knok.services import inbox, niches, tracking
 from knok.services.events import log_event
 from knok.services.mailer import APP_PASSWORD
 from knok.services.readiness import google_account, sending_problems
@@ -63,10 +64,16 @@ def state(user: m.User = Depends(current_user), profile: m.Profile = Depends(cur
     return {
         "user": {"id": user.id, "email": user.email},
         "profile": _profile_out(profile),
-        "pack": {"slug": pack.slug, "name": pack.name("es"), "languages": pack.languages,
-                 "default_countries": pack.sources.default_countries,
+        "pack": {"slug": pack.slug, "name": pack.name("es"), "description": pack.description.get("es", ""),
+                 "languages": pack.languages, "default_countries": pack.sources.default_countries,
+                 "custom": pack.slug.startswith(custom.PREFIX),
+                 "company_sources": {"osm": bool(pack.sources.osm.tags), "wikidata": bool(pack.sources.wikidata.queries),
+                                     "directories": len(pack.sources.directories)},
                  "profile_fields": [f.model_dump() for f in pack.profile_fields]},
-        "packs": [{"slug": p.slug, "name": p.name("es")} for p in all_packs().values()],
+        "packs": [{"slug": p.slug, "name": p.name("es"), "custom": False,
+                   "description": p.description.get("es", "")} for p in all_packs().values()]
+                 + [{"slug": n.slug, "name": n.name, "custom": True, "description": (n.spec or {}).get("description", "")}
+                    for n in niches.list_for(db, user.id)],
         "connections": {"google": {"connected": g is not None, "email": g.account_email if g else "",
                                    "method": ("app_password" if g.scopes == APP_PASSWORD else "oauth") if g else "",
                                    "oauth_configured": bool(s.google_client_id),

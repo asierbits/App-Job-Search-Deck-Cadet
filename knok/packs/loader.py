@@ -76,11 +76,32 @@ def all_packs() -> dict[str, Pack]:
     return packs
 
 
-def get_pack(slug: str) -> Pack:
+@lru_cache
+def base_templates() -> dict[str, TemplateText]:
+    """Plantillas genéricas (las usan los nichos que crea el usuario)."""
+    return _plantillas(PACKS_DIR / "_base")
+
+
+def find_pack(slug: str | None) -> Pack | None:
+    """Un pack de knok/packs/ o un nicho creado por un usuario (slug 'n-…'); None si no existe."""
+    if not slug:
+        return None
     packs = all_packs()
-    if slug not in packs:
-        raise PackError(f"Pack desconocido: '{slug}'. Disponibles: {', '.join(packs)}")
-    return packs[slug]
+    if slug in packs:
+        return packs[slug]
+    from knok.packs import custom
+    return custom.lookup(slug)
+
+
+def pack_exists(slug: str | None) -> bool:
+    return find_pack(slug) is not None
+
+
+def get_pack(slug: str) -> Pack:
+    p = find_pack(slug)
+    if p is None:
+        raise PackError(f"Pack desconocido: '{slug}'. Disponibles: {', '.join(all_packs())}")
+    return p
 
 
 def default_pack() -> Pack:
@@ -89,7 +110,7 @@ def default_pack() -> Pack:
 
 
 def pack_or_default(slug: str | None) -> Pack:
-    return get_pack(slug) if slug and slug in all_packs() else default_pack()
+    return find_pack(slug) or default_pack()
 
 
 def answer_keys_for(pack: Pack) -> list[AnswerKey]:

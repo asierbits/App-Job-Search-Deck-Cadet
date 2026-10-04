@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     tasks_eager: bool = False                      # True: las tareas se ejecutan en el acto (tests/demos)
     embedded_worker: bool = False                  # True: la API lleva el worker dentro (uso local, un solo proceso)
     local_single_user: bool = False                # True: el panel entra sin login (solo desde este ordenador)
-    local_default_pack: str = "marina_mercante"    # nicho con el que empieza el usuario local
+    local_default_pack: str = "general"            # nicho con el que empieza el usuario local
 
     # --- red
     crawler_user_agent: str = "knok-bot/0.1 (+https://knok.app/bot; busca contactos de empleo publicados)"

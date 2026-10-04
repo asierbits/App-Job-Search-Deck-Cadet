@@ -8,7 +8,7 @@ from knok.api.deps import ApiError, get_db, not_found, require_admin
 from knok.core.filling.fields import BY_KEY
 from knok.core.text import norm
 from knok.db import models as m
-from knok.packs.loader import all_packs, answer_keys_for
+from knok.packs.loader import answer_keys_for, find_pack
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -38,8 +38,8 @@ def map_question(qid: int, data: MapIn, _: m.User = Depends(require_admin), db: 
     if u is None:
         raise not_found("Pregunta")
     claves = set(BY_KEY)
-    if u.pack in all_packs():
-        claves |= {k.key for k in answer_keys_for(all_packs()[u.pack])}
+    if find_pack(u.pack):
+        claves |= {k.key for k in answer_keys_for(find_pack(u.pack))}
     if data.key not in claves:
         raise ApiError(422, "unknown_key", f"Clave desconocida: {data.key}")
     patron = norm(data.pattern or u.label)

@@ -12,7 +12,7 @@ def test_sesion_local_solo_si_esta_activada(client, monkeypatch):
     t2 = client.get("/auth/local").json()["token"]
     h1, h2 = ({"Authorization": f"Bearer {t}"} for t in (t1, t2))
     a, b = client.get("/me", headers=h1).json(), client.get("/me", headers=h2).json()
-    assert a["user"]["id"] == b["user"]["id"] and a["profile"]["pack"] == "marina_mercante"
+    assert a["user"]["id"] == b["user"]["id"] and a["profile"]["pack"] == "general"
 
 
 def test_sesion_local_no_desde_fuera(db_engine, monkeypatch):

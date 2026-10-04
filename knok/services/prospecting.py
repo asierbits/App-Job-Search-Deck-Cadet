@@ -59,6 +59,9 @@ def ingest_companies(db: Session, http: Http, pack: Pack, params: dict, progress
         tareas.append((d.url.split("/")[2] if "//" in d.url else d.url, "directory", {"pack": pack.slug, "url": d.url},
                        lambda d=d: directories.read_directory(http, d.url, d.country, pack.crawl.exclude_domains,
                                                               pack.crawl.allowed_countries, ua)))
+    if s.osm.tags and not (params.get("cities") or []) and progress and not tareas:
+        log_event(db, progress.search.user_id, "Para buscar empresas de este nicho indica al menos una ciudad "
+                  "(se buscan en OpenStreetMap a su alrededor).", "warning")
     if s.osm.tags:
         radio = float(params.get("radius_km") or 10)
         for ciudad in params.get("cities") or []:
