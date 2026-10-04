@@ -1,4 +1,5 @@
 """Registro de tareas: importar los módulos que definen tareas con @task."""
+import knok.services.ats_discovery  # noqa: F401  discover_ats
 import knok.services.crawling  # noqa: F401  crawl_companies
 import knok.services.inbox  # noqa: F401  check_inbox
 import knok.services.mailer  # noqa: F401  send_email, deliver_simulated_replies

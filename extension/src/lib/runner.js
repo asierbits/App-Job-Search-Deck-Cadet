@@ -54,3 +54,44 @@ export function buildPlan(fillPlan, files = {}) {
     files,
   };
 }
+
+/**
+ * Piloto automático: rellena en pestañas de fondo los formularios de empresa que ya están en knok
+ * (source "queue") o los de una búsqueda nueva (source "search"). Igual que la tanda: pausas entre
+ * ofertas, como mucho `max`, nunca LinkedIn en lote y NUNCA envía.
+ */
+export async function runPilot({ api, openAndFill, sleep, onProgress = () => {}, shouldStop = () => false,
+                                 source = "queue", filters = {}, max = 20, pause = DEFAULTS.pause, skip = () => false,
+                                 pollMs = DEFAULTS.pollMs, maxPolls = DEFAULTS.maxPolls }) {
+  let cola;
+  if (source === "search") {
+    onProgress({ phase: "searching" });
+    let s = await api("/searches", { method: "POST", body: { ...filters, include_companies: false } });
+    for (let i = 0; s.status !== "done" && s.status !== "error" && s.status !== "cancelled" && i < maxPolls; i++) {
+      if (shouldStop()) return { stopped: true, prepared: [], oneByOne: [] };
+      await sleep(pollMs);
+      s = await api("/searches/" + s.id);
+    }
+    if (s.status !== "done") throw new Error("La búsqueda no terminó: " + (s.error || s.status));
+    const batch = await api("/batches", { method: "POST", body: { search_id: s.id, size: Math.max(max, 1), routes: ["ats_extension", "portal_copilot"] } });
+    cola = await api("/extension/queue?batch_id=" + batch.id);
+  } else {
+    cola = await api("/extension/queue");
+  }
+  const enTanda = cola.filter((q) => q.route === "ats_extension" && q.apply_url && !skip(q.id)).slice(0, max);
+  const unaAUna = cola.filter((q) => q.route === "portal_copilot");
+  const prepared = [];
+  for (let i = 0; i < enTanda.length; i++) {
+    if (shouldStop()) return { stopped: true, prepared, oneByOne: unaAUna };
+    const item = enTanda[i];
+    onProgress({ phase: "filling", index: i + 1, total: enTanda.length, item: { id: item.id, title: item.title, company: item.company } });
+    try {
+      prepared.push({ ...item, result: await openAndFill(item) });
+    } catch (e) {
+      prepared.push({ ...item, error: String(e.message || e) });
+    }
+    if (i < enTanda.length - 1) await sleep(randomPause(pause));
+  }
+  onProgress({ phase: "done", prepared: prepared.length, oneByOne: unaAUna.length });
+  return { prepared, oneByOne: unaAUna };
+}

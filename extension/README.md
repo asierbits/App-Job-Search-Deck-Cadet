@@ -19,6 +19,15 @@ pulsas tú. Solo actúa cuando pulsas un botón del popup; no hay nada corriendo
 
 ## Qué hace
 
+- **Piloto automático** (botón en el panel de knok, en Empresas y ofertas o Seguimiento, o en el popup):
+  abre en una **ventana aparte, minimizada**, los formularios de empresa (Greenhouse, Lever, Ashby…) que
+  tienes en knok, o los de una búsqueda nueva, uno tras otro con pausas de 8–20 s, y los deja **rellenos**
+  en un grupo de pestañas «knok · revisar y enviar». No pulsa Enviar. No repite los que rellenó en los
+  últimos 3 días. El panel enseña el progreso y tiene Detener y «Ver la ventana».
+- **Guardar las ofertas de esta página** (en una búsqueda de empleos de LinkedIn): guarda en knok las ofertas
+  que tienes en pantalla, sin pedir nada más a LinkedIn. knok busca si cada empresa publica sus ofertas en su
+  propio Greenhouse, Lever o Ashby (APIs públicas); si encuentra la misma oferta, la candidatura pasa a ese
+  formulario y entra en el piloto automático. Las de solicitud sencilla se quedan para hacerlas de una en una.
 - **Iniciar búsqueda**: lanza una búsqueda con tus filtros, prepara una tanda (~40) de ofertas cuyo formulario
   es de Greenhouse, Lever o Ashby, y las abre una a una en pestañas (con pausas de 8–20 s), rellenas y
   **sin enviar**. Revisa cada pestaña y pulsa *Enviar* tú; knok lo anota en el seguimiento.

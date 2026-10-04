@@ -1944,11 +1944,13 @@ $("#nicho-chip").addEventListener("click", () => {
 async function pintarExtension() {
   try {
     const toks = await api("/auth/tokens");
-    const ext = toks.filter((t) => t.name === "extensión de Chrome" || /extensi/i.test(t.name));
-    const usado = ext.map((t) => t.last_used_at).filter(Boolean).sort().pop();
+    const deExtension = toks.filter((t) => t.name === "extensión de Chrome" || /extensi/i.test(t.name));
+    const usado = deExtension.map((t) => t.last_used_at).filter(Boolean).sort().pop();
     const el = $("#ext-estado");
-    if (ext.length) {
-      el.innerHTML = `<span class="ext-ok">Conectada</span>${usado ? ` · último uso ${esc(fecha(usado))}` : ""}. Rellena los formularios con tus datos; Enviar lo pulsas tú.`;
+    if (deExtension.length || ext.listo) {
+      el.innerHTML = `<span class="ext-ok">${ext.listo ? `Instalada (versión ${esc(ext.version)})` : "Conectada"}</span>` +
+        `${usado ? ` · último uso ${esc(fecha(usado))}` : ""}. Rellena los formularios con tus datos; Enviar lo pulsas tú.` +
+        (ext.listo ? " El <b>Piloto automático</b> está en Empresas y ofertas." : "");
     } else {
       el.textContent = "Aún sin conectar. Rellena los formularios de candidatura con tus datos y nunca pulsa Enviar: eso lo haces tú.";
       $("#pasos-extension").open = true;
@@ -1974,3 +1976,117 @@ $("#btn-codigo-ext").addEventListener("click", async () => {
     pintarExtension();
   } catch (err) { aviso(err.message, "critico"); }
 });
+
+// ------------------------------------------------------------ piloto automático (lo ejecuta la extensión)
+
+const ext = { listo: false, version: null, pendientes: new Map(), n: 0, ultimo: null, oculto: false };
+
+window.addEventListener("message", (ev) => {
+  if (ev.source !== window || ev.origin !== location.origin) return;
+  const m = ev.data;
+  if (!m || m.source !== "knok-ext") return;
+  if (m.type === "ready") { ext.listo = true; ext.version = m.version; if (st.vista === "config") pintarExtension(); return; }
+  if (m.id && ext.pendientes.has(m.id)) { ext.pendientes.get(m.id)(m.reply || {}); ext.pendientes.delete(m.id); }
+});
+window.postMessage({ source: "knok-panel", type: "ping" }, location.origin);
+
+function extPedir(type, payload = {}) {
+  return new Promise((resolve, reject) => {
+    if (!ext.listo) return reject(new Error("La extensión de Chrome no está instalada o no está activa en esta página."));
+    const id = "k" + (++ext.n);
+    ext.pendientes.set(id, (r) => (r && r.error ? reject(new Error(r.error)) : resolve(r)));
+    window.postMessage({ source: "knok-panel", id, type, payload }, location.origin);
+    setTimeout(() => { if (ext.pendientes.delete(id)) reject(new Error("La extensión no responde. Recárgala en chrome://extensions.")); }, 20000);
+  });
+}
+
+const conFormulario = () => st.filas.filter((x) => x.route === "ats_extension" && ["new", "prepared", "confirmed"].includes(x.status));
+
+async function abrirPiloto() {
+  if (!st.filas.length) await cargarTabla();
+  if (!ext.listo) window.postMessage({ source: "knok-panel", type: "ping" }, location.origin);
+  await new Promise((r) => setTimeout(r, 250));
+  $("#piloto-sin-ext").hidden = ext.listo;
+  $("#piloto-con-ext").hidden = !ext.listo;
+  $("#piloto-empezar").disabled = !ext.listo;
+  const n = conFormulario().length;
+  $("#piloto-n-tabla").textContent = n ? `${n} ${n === 1 ? "oferta va" : "ofertas van"} por el formulario de la empresa (Greenhouse, Lever, Ashby…).`
+    : "Ahora no tienes ninguna: usa la otra opción o guarda ofertas desde LinkedIn con la extensión.";
+  $('#form-piloto [value="tabla"]').disabled = !n;
+  if (!n) $('#form-piloto [value="search"]').checked = true;
+  $("#dialogo-piloto").showModal();
+}
+$$("[data-piloto]").forEach((b) => b.addEventListener("click", abrirPiloto));
+$("#piloto-cerrar").addEventListener("click", () => $("#dialogo-piloto").close());
+$("#piloto-ir-config").addEventListener("click", () => { $("#dialogo-piloto").close(); mostrar("config"); });
+
+$("#form-piloto").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = ev.target, fuente = f.fuente.value, max = Number(f.max.value), minimized = f.minimizada.checked;
+  try {
+    $("#piloto-empezar").disabled = true;
+    let payload;
+    if (fuente === "tabla") {
+      // Las que aún no tienen candidatura se preparan primero (sin enviar nada)
+      const filas = conFormulario().sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, max);
+      const nuevas = filas.filter((x) => !x.application_id).map((x) => x.result_id);
+      if (nuevas.length) await api("/panel/prepare", { method: "POST", body: { result_ids: nuevas } });
+      payload = { source: "queue", max, minimized };
+    } else {
+      const b = leerBusqueda();
+      payload = { source: "search", max, minimized, filters: {
+        pack: st.estado.pack.slug, countries: b.paises, cities: b.cities.split("\n").map((c) => c.trim()).filter(Boolean),
+        keywords: b.keywords.split(",").map((k) => k.trim()).filter(Boolean), sources: b.sources.filter((s) => s !== "companies").length ? b.sources.filter((s) => s !== "companies") : ["ats"],
+        max_webs: 0 } };
+    }
+    await extPedir("pilot:start", payload);
+    $("#dialogo-piloto").close();
+    ext.oculto = false;
+    aviso("Piloto en marcha: los formularios se abren en una ventana aparte. Puedes seguir usando knok.", "bien");
+    estadoPiloto();
+  } catch (err) { aviso(err.message, "critico"); }
+  finally { $("#piloto-empezar").disabled = false; }
+});
+
+async function estadoPiloto() {
+  if (!ext.listo) return;
+  let s;
+  try { s = await extPedir("status"); } catch { return; }
+  const p = s.progress;
+  const barra = $("#barra-piloto");
+  const reciente = p && Date.now() - (p.at || 0) < 6 * 3600 * 1000;
+  if (!p || !reciente || ext.oculto || !["searching", "filling", "done", "stopped", "error"].includes(p.phase)) { barra.hidden = true; return; }
+  barra.hidden = false;
+  barra.classList.toggle("terminado", !s.running);
+  $("#piloto-detener").hidden = !s.running;
+  $("#piloto-cerrar-barra").hidden = s.running;
+  $("#piloto-ver").hidden = !(p.pilot || s.running);
+  const pista = $("#piloto-barra");
+  pista.parentElement.hidden = !s.running;
+  if (p.phase === "searching") {
+    $("#piloto-titulo").textContent = "Piloto: buscando ofertas…"; $("#piloto-detalle").textContent = "Después abrirá los formularios.";
+    pista.classList.add("indeterminado");
+  } else if (p.phase === "filling") {
+    $("#piloto-titulo").textContent = `Piloto: rellenando ${p.index} de ${p.total}`;
+    $("#piloto-detalle").textContent = [p.item && p.item.company, p.item && p.item.title].filter(Boolean).join(" · ");
+    pista.classList.remove("indeterminado");
+    pista.style.width = (p.index / p.total) * 100 + "%";
+  } else if (p.phase === "done") {
+    const r = p.result || {};
+    const total = typeof r.prepared === "number" ? r.prepared : (r.prepared || []).length;
+    const fallos = r.errors || 0, n = Math.max(0, total - fallos);
+    $("#piloto-titulo").textContent = `Piloto: ${n} ${n === 1 ? "formulario listo" : "formularios listos"}`;
+    $("#piloto-detalle").textContent = (n ? "Revísalos en la ventana de knok y pulsa Enviar en cada uno." : total ? "" : "No había formularios nuevos que rellenar.") +
+      (fallos ? ` ${fallos} no se ${fallos === 1 ? "pudo" : "pudieron"} abrir o rellenar.` : "");
+    if (ext.ultimo !== "done") { cargarTabla(); refrescar(); }
+  } else if (p.phase === "stopped") {
+    $("#piloto-titulo").textContent = "Piloto detenido"; $("#piloto-detalle").textContent = "Lo ya relleno sigue en la ventana de knok.";
+  } else {
+    $("#piloto-titulo").textContent = "El piloto se paró"; $("#piloto-detalle").textContent = p.error || "";
+  }
+  ext.ultimo = p.phase;
+}
+setInterval(estadoPiloto, 2000);
+$("#piloto-detener").addEventListener("click", () => extPedir("pilot:stop").then(() => aviso("Deteniendo el piloto…")).catch((e) => aviso(e.message, "critico")));
+$("#piloto-ver").addEventListener("click", () => extPedir("pilot:show").catch((e) => aviso(e.message, "critico")));
+$("#piloto-cerrar-barra").addEventListener("click", () => { ext.oculto = true; $("#barra-piloto").hidden = true; });

@@ -10,7 +10,9 @@ function pintar(s) {
   const textos = {
     searching: "Buscando ofertas…",
     filling: `Rellenando ${p.index}/${p.total}: ${p.item && p.item.title}`,
-    done: p.result ? `Listo: ${p.result.prepared.length} solicitudes rellenas en pestañas. Revísalas y pulsa Enviar en cada una.` +
+    done: p.pilot && p.result ? `Piloto: ${p.result.prepared} formularios rellenos en la ventana de knok. Revísalos y pulsa Enviar en cada uno.` +
+      (p.result.oneByOne ? `\n${p.result.oneByOne} de LinkedIn/portal: de una en una con «Rellenar esta página».` : "") :
+      p.result ? `Listo: ${p.result.prepared.length} solicitudes rellenas en pestañas. Revísalas y pulsa Enviar en cada una.` +
       (p.result.oneByOne && p.result.oneByOne.length ? `\n${p.result.oneByOne.length} de LinkedIn: ábrelas y usa «Rellenar esta página», de una en una.` : "") : "Listo",
     stopped: "Detenido.",
     error: "Error: " + p.error,
@@ -52,6 +54,23 @@ $("iniciar").onclick = async () => {
   if (r.error) $("estado").textContent = "Error: " + r.error;
 };
 $("detener").onclick = () => send({ type: "knok:stop" });
+$("piloto").onclick = async () => {
+  const r = await send({ type: "knok:pilot", payload: { source: "queue", max: 20, minimized: true } });
+  if (r.error) $("estado").textContent = "Error: " + r.error;
+};
+$("verPiloto").onclick = async () => {
+  const r = await send({ type: "knok:pilotShow" });
+  if (r && r.error) $("estado").textContent = r.error;
+};
+$("guardarLista").onclick = async () => {
+  $("estado").textContent = "Guardando las ofertas que tienes en pantalla…";
+  const r = await send({ type: "knok:captureList" });
+  $("estado").textContent = r.error ? "Error: " + r.error :
+    `Guardadas ${r.saved} (${r.new} nuevas).` +
+    (r.autopilot ? `\n${r.autopilot} van por el formulario de la empresa: entran en el piloto automático.` : "") +
+    (r.one_by_one ? `\n${r.one_by_one} son de solicitud sencilla: de una en una.` : "") +
+    (r.locating ? `\nBuscando el formulario propio de ${r.locating} empresas: si lo tienen, pasarán al piloto.` : "");
+};
 $("rellenar").onclick = async () => {
   const r = await send({ type: "knok:fillCurrent" });
   $("estado").textContent = r.error ? "Error: " + r.error : r.blocked ? r.blocked :
@@ -63,7 +82,7 @@ $("capturar").onclick = async () => {
 };
 
 chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
-  if (tab && /linkedin\.com\/jobs/.test(tab.url || "")) $("avisoLinkedin").hidden = false;
+  if (tab && /linkedin\.com\/jobs/.test(tab.url || "")) { $("avisoLinkedin").hidden = false; $("guardarLista").hidden = false; }
 });
 refrescar();
 setInterval(refrescar, 1500);

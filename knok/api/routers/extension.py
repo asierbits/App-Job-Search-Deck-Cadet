@@ -154,8 +154,7 @@ def submitted(data: SubmittedIn, profile: m.Profile = Depends(current_profile), 
         raise ApiError(409, ex.code, str(ex))
 
 
-@router.post("/captures", status_code=201, summary="Guardar en knok la oferta que estás viendo (LinkedIn, Indeed, Google…)")
-def capture(data: CaptureIn, profile: m.Profile = Depends(current_profile), db: Session = Depends(get_db)):
+def _capture(db: Session, profile: m.Profile, data: CaptureIn) -> tuple[m.Application, m.Job, m.Job | None]:
     """A la base común solo van hechos mínimos (empresa, puesto, ubicación, enlace de solicitud). La descripción
     del portal se queda en TU candidatura, nunca en la base común."""
     from knok.core.geo import parse_location
@@ -173,5 +172,52 @@ def capture(data: CaptureIn, profile: m.Profile = Depends(current_profile), db: 
     app = svc.new_application(db, profile, destino, destino.company)
     if data.description and app.status in svc.OPEN and not app.notes:
         app.notes = html_to_text(data.description)[:20000]
+    return app, job, original
+
+
+@router.post("/captures", status_code=201, summary="Guardar en knok la oferta que estás viendo (LinkedIn, Indeed, Google…)")
+def capture(data: CaptureIn, profile: m.Profile = Depends(current_profile), db: Session = Depends(get_db)):
+    app, job, original = _capture(db, profile, data)
+    _localizar(db, profile, [app])
     return {"application": svc.review_item(db, app), "job_id": job.id,
             "original_job_id": original.id if original else None}
+
+
+class CapturesIn(BaseModel):
+    items: list[CaptureIn] = Field(min_length=1, max_length=60)
+
+
+def _localizar(db: Session, profile: m.Profile, apps: list[m.Application]) -> int:
+    """Empresas de ofertas guardadas que aún no van por su formulario: buscar su tablero de ATS en segundo plano."""
+    from knok.worker.queue import enqueue
+    ids = list(dict.fromkeys(a.company_id for a in apps if a.company_id and a.route != "ats_extension"
+                             and a.job and a.job.source == "capture" and a.status in svc.OPEN))
+    if ids:
+        enqueue(db, "discover_ats", {"user_id": profile.user_id, "company_ids": ids}, user_id=profile.user_id,
+                max_attempts=1)
+    return len(ids)
+
+
+@router.post("/captures/bulk", status_code=201,
+             summary="Guardar las ofertas que el usuario tiene en pantalla (p. ej. una página de resultados)")
+def capture_bulk(data: CapturesIn, profile: m.Profile = Depends(current_profile), db: Session = Depends(get_db)):
+    """Solo lo que ya está en la página que el usuario está viendo: knok no navega el portal por su cuenta.
+    Las que van por el formulario de la empresa entran en el piloto automático; las de solicitud sencilla
+    del portal quedan para hacerlas de una en una."""
+    apps, errores, nuevas = [], 0, 0
+    for item in data.items:
+        try:
+            with db.begin_nested():
+                antes = db.scalar(select(m.Application.id).order_by(m.Application.id.desc()).limit(1)) or 0
+                app, _, _ = _capture(db, profile, item)
+                nuevas += int(app.id > antes)
+                apps.append(app)
+        except Exception:
+            errores += 1
+    vias: dict[str, int] = {}
+    for a in apps:
+        vias[a.route] = vias.get(a.route, 0) + 1
+    buscando = _localizar(db, profile, apps)
+    return {"saved": len(apps), "new": nuevas, "errors": errores, "routes": vias,
+            "autopilot": vias.get("ats_extension", 0), "one_by_one": vias.get("portal_copilot", 0),
+            "locating": buscando}

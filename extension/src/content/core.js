@@ -233,7 +233,13 @@
     return base;
   }
 
+  /** Lista de ofertas que el usuario tiene en pantalla (página de resultados), si el adaptador sabe leerla. */
+  function extractList() {
+    const a = adapterFor();
+    return a && a.extractList ? a.extractList(document, location).filter((x) => x.title && x.url) : [];
+  }
+
   const register = (a) => { if (!adapters.some((x) => x.name === a.name)) adapters.push(a); };
   window.__knok = { version: "0.1.0", register, adapters, extract, fill, isSubmitted,
-                    extractJob, detectCaptcha, adapterFor, _text: text };
+                    extractJob, extractList, detectCaptcha, adapterFor, _text: text };
 })();

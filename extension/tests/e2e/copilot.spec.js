@@ -137,3 +137,19 @@ test("Página de prueba de knok: formulario genérico, empresa y puesto de la pr
   expect(await page.isChecked("#privacidad")).toBe(false);   // el consentimiento nunca se marca solo
   expect(await page.locator("#resultado").isHidden()).toBe(true);   // y nunca se envía
 });
+
+test("LinkedIn: guarda la lista que el usuario tiene en pantalla, sin pedir nada más a LinkedIn", async ({ page }) => {
+  const peticiones = [];
+  page.on("request", (r) => peticiones.push(r.url()));
+  await load(page, "https://www.linkedin.com/jobs/search/?keywords=backend", "linkedin_lista.html");
+  const lista = await page.evaluate(() => window.__knok.extractList());
+  expect(lista).toEqual([
+    { url: "https://www.linkedin.com/jobs/view/4011111111/", title: "Backend Engineer (m/f/d)", company: "Acme Corp",
+      location: "Madrid, Comunidad de Madrid, España (Híbrido)", easy_apply: false, apply_url: "" },
+    { url: "https://www.linkedin.com/jobs/view/4022222222/", title: "Data Analyst", company: "Otra Firma",
+      location: "Barcelona, Cataluña, España", easy_apply: true, apply_url: "" },
+    { url: "https://www.linkedin.com/jobs/view/4044444444/", title: "Recepcionista", company: "Hotel Mar",
+      location: "Valencia, España", easy_apply: false, apply_url: "" },
+  ]);
+  expect(peticiones).toEqual(["https://www.linkedin.com/jobs/search/?keywords=backend"]);   // solo la página que ya estaba abierta
+});

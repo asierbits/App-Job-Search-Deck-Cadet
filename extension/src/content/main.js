@@ -31,6 +31,7 @@
       if (applicationId) vigilarEnvio();
       reply(res);
     } else if (msg.cmd === "capture") reply(window.__knok.extractJob());
+    else if (msg.cmd === "captureList") reply(window.__knok.extractList());
     else if (msg.cmd === "submitted?") reply({ submitted: window.__knok.isSubmitted() });
     return true;
   });

@@ -1,7 +1,7 @@
 // Lógica de la tanda sin Chrome: límites, pausas, LinkedIn de una en una y nada de envíos.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildPlan, randomPause, runBatch } from "../../src/lib/runner.js";
+import { buildPlan, randomPause, runBatch, runPilot } from "../../src/lib/runner.js";
 
 function fakeApi(queue) {
   const calls = [];
@@ -65,4 +65,38 @@ test("plan: los archivos van aparte y nunca como valor de texto", () => {
 test("pausa aleatoria dentro del rango", () => {
   assert.equal(randomPause([8, 20], () => 0), 8000);
   assert.equal(randomPause([8, 20], () => 1), 20000);
+});
+
+test("piloto: rellena las que ya hay en knok, sin repetir las recientes, sin LinkedIn y con pausas", async () => {
+  const cola = [item(1), item(2), item(3), item(4, "portal_copilot"), { ...item(5), apply_url: "" }];
+  const { api, calls } = fakeApi(cola);
+  const abiertas = [], pausas = [];
+  const r = await runPilot({ api, max: 10, pause: [8, 20], skip: (id) => id === 2,
+    openAndFill: async (it) => { abiertas.push(it.id); return { filled: 2 }; },
+    sleep: async (ms) => { pausas.push(ms); } });
+  assert.deepEqual(abiertas, [1, 3]);                       // la 2 ya se rellenó hace poco; la 5 no tiene enlace
+  assert.equal(r.oneByOne.length, 1);                       // LinkedIn / portal: de una en una, nunca en lote
+  assert.equal(pausas.length, 1);
+  assert.ok(pausas.every((ms) => ms >= 8000 && ms <= 20000));
+  assert.ok(!calls.some(([, path]) => path === "/searches"), "sin búsqueda nueva");
+  assert.ok(!calls.some(([, path]) => /send|submit/.test(path)), "nunca envía");
+});
+
+test("piloto con búsqueda nueva: busca, prepara la tanda y respeta el máximo", async () => {
+  const { api, calls } = fakeApi(Array.from({ length: 30 }, (_, i) => item(i)));
+  const abiertas = [];
+  const r = await runPilot({ api, source: "search", filters: { keywords: ["junior"] }, max: 5, pollMs: 0,
+    openAndFill: async (it) => { abiertas.push(it.id); return {}; }, sleep: async () => {} });
+  assert.equal(abiertas.length, 5);
+  assert.equal(r.prepared.length, 5);
+  const busqueda = calls.find(([, path]) => path === "/searches");
+  assert.deepEqual(busqueda[2], { keywords: ["junior"], include_companies: false });
+});
+
+test("piloto: Detener para entre ofertas", async () => {
+  const { api } = fakeApi([item(1), item(2), item(3)]);
+  let n = 0;
+  const r = await runPilot({ api, openAndFill: async () => { n++; return {}; }, sleep: async () => {}, shouldStop: () => n >= 1 });
+  assert.equal(r.stopped, true);
+  assert.equal(n, 1);
 });

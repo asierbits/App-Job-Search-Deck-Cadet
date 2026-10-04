@@ -1,0 +1,36 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Empleos | LinkedIn</title></head>
+<body>
+<!-- Página de resultados de búsqueda de empleos (estructura simplificada de LinkedIn, con sesión iniciada) -->
+<ul class="scaffold-layout__list-container">
+  <li data-occludable-job-id="4011111111">
+    <div class="job-card-container" data-job-id="4011111111">
+      <a class="job-card-list__title--link" href="/jobs/view/4011111111/?refId=abc" aria-label="Backend Engineer (m/f/d) with verification">Backend Engineer (m/f/d)</a>
+      <div class="artdeco-entity-lockup__subtitle"><span>Acme Corp</span></div>
+      <ul class="job-card-container__metadata-wrapper"><li>Madrid, Comunidad de Madrid, España (Híbrido)</li></ul>
+      <ul class="job-card-list__footer-wrapper"><li>Promocionado</li></ul>
+    </div>
+  </li>
+  <li data-occludable-job-id="4022222222">
+    <div class="job-card-container" data-job-id="4022222222">
+      <a class="job-card-list__title--link" href="/jobs/view/4022222222/" aria-label="Data Analyst">Data Analyst</a>
+      <div class="artdeco-entity-lockup__subtitle"><span>Otra Firma</span></div>
+      <ul class="job-card-container__metadata-wrapper"><li>Barcelona, Cataluña, España</li></ul>
+      <ul class="job-card-list__footer-wrapper"><li>Solicitud sencilla</li></ul>
+    </div>
+  </li>
+  <!-- Una tarjeta aún sin cargar (LinkedIn las pinta al bajar): no tiene título y no se guarda -->
+  <li data-occludable-job-id="4033333333"></li>
+  <!-- La misma oferta repetida no se guarda dos veces -->
+  <li data-occludable-job-id="4011111111"><a href="/jobs/view/4011111111/" aria-label="Backend Engineer (m/f/d)">x</a></li>
+</ul>
+<!-- Página pública de empleos (sin sesión) -->
+<ul class="jobs-search__results-list">
+  <li><div class="base-card base-search-card" data-entity-urn="urn:li:jobPosting:4044444444">
+    <a class="base-card__full-link" href="https://es.linkedin.com/jobs/view/recepcionista-at-hotel-mar-4044444444?trk=public"></a>
+    <h3 class="base-search-card__title">Recepcionista</h3>
+    <h4 class="base-search-card__subtitle"><a>Hotel Mar</a></h4>
+    <span class="job-search-card__location">Valencia, España</span>
+  </div></li>
+</ul>
+</body></html>

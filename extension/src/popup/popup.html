@@ -27,7 +27,14 @@
   </fieldset>
 
   <fieldset>
-    <legend>Tanda (~40 solicitudes)</legend>
+    <legend>Piloto automático</legend>
+    <p class="ayuda" style="margin:0 0 6px">Abre en una ventana aparte (minimizada) los formularios de empresa que ya tienes en knok y los deja rellenos. Tú revisas y pulsas Enviar.</p>
+    <button id="piloto">Rellenar las de knok</button>
+    <button id="verPiloto">Ver la ventana</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Buscar y rellenar (~40 solicitudes)</legend>
     <label>Países (ISO, separados por comas) <input id="paises" type="text" placeholder="es, de, nl"></label>
     <label>Ciudades <input id="ciudades" type="text" placeholder="Madrid, Berlin"></label>
     <label>Palabras clave <input id="palabras" type="text" placeholder="python, backend"></label>
@@ -39,6 +46,7 @@
     <legend>Esta página</legend>
     <button id="rellenar">Rellenar esta página</button>
     <button id="capturar">Guardar oferta en knok</button>
+    <button id="guardarLista" hidden>Guardar las ofertas de esta página</button>
     <p class="aviso" id="avisoLinkedin" hidden>LinkedIn prohíbe automatizar la cuenta aunque pulses tú cada paso:
       úsalo de una en una y con pausas. Hay riesgo de restricción.</p>
   </fieldset>

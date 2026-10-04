@@ -76,6 +76,24 @@ def new_application(db: Session, profile: Profile, job: Job | None, company: Com
     return app
 
 
+def reroute(db: Session, app: Application, profile: Profile, job: Job) -> Application:
+    """Pasar una candidatura a otra oferta (la original en el formulario de la empresa) y volver a prepararla."""
+    pack = pack_or_default(profile.pack)
+    d = decide(RouteInput(has_job=True, source=job.source, apply_url=job.apply_url, url=job.url,
+                          easy_apply=job.easy_apply, apply_email=job.apply_email,
+                          company_emails=best_emails(db, job.company, pack),
+                          extra_roles=frozenset(pack.crawl.extra_generic + pack.crawl.mailbox_priority)))
+    app.job_id, app.company_id = job.id, job.company_id
+    app.route, app.platform, app.route_reason = d.route, d.platform, d.reason
+    app.apply_url = d.apply_url or job.apply_url
+    app.contact_email = d.contact_email
+    app.status = "prepared"
+    db.flush()
+    db.refresh(app)
+    prepare(db, app, profile)
+    return app
+
+
 def _language(app: Application, profile: Profile) -> str:
     pack = pack_or_default(profile.pack)
     if app.job and app.job.language in pack.languages:

@@ -1,20 +1,53 @@
 {
   "manifest_version": 3,
   "name": "knok · copiloto de candidaturas",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Rellena solicitudes de empleo con tus datos de knok. Nunca envía nada: el botón Enviar lo pulsas tú.",
-  "action": { "default_popup": "src/popup/popup.html", "default_title": "knok" },
-  "background": { "service_worker": "src/background.js", "type": "module" },
-  "permissions": ["storage", "activeTab", "scripting", "tabs"],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "knok"
+  },
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs",
+    "tabGroups"
+  ],
   "host_permissions": [
     "http://localhost:8000/*",
-    "https://boards.greenhouse.io/*", "https://job-boards.greenhouse.io/*",
-    "https://boards.eu.greenhouse.io/*", "https://job-boards.eu.greenhouse.io/*",
-    "https://jobs.lever.co/*", "https://jobs.eu.lever.co/*", "https://jobs.ashbyhq.com/*",
+    "http://127.0.0.1:8000/*",
+    "https://boards.greenhouse.io/*",
+    "https://job-boards.greenhouse.io/*",
+    "https://boards.eu.greenhouse.io/*",
+    "https://job-boards.eu.greenhouse.io/*",
+    "https://jobs.lever.co/*",
+    "https://jobs.eu.lever.co/*",
+    "https://jobs.ashbyhq.com/*",
     "https://www.linkedin.com/jobs/*"
   ],
   "optional_host_permissions": [
     "https://*/*"
   ],
-  "externally_connectable": { "matches": ["http://localhost:3000/*"] }
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:3000/*"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:8000/*",
+        "http://127.0.0.1:8000/*"
+      ],
+      "js": [
+        "src/content/bridge.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
 }

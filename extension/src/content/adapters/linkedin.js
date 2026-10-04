@@ -17,6 +17,31 @@
     },
     detectSubmitted: (doc) => /your application was sent|application submitted|solicitud enviada|se ha enviado tu solicitud/i
       .test(t(doc.querySelector("div[role='dialog']") || doc.body).slice(0, 3000)),
+    // Las tarjetas de la página de resultados que el usuario está viendo (solo lo ya cargado en pantalla)
+    extractList: (doc) => {
+      const tarjetas = doc.querySelectorAll("li[data-occludable-job-id], .job-card-container[data-job-id], div.base-card[data-entity-urn], li .base-search-card");
+      const vistos = new Set();
+      const out = [];
+      tarjetas.forEach((c) => {
+        const enlace = c.querySelector("a[href*='/jobs/view/']");
+        const id = c.getAttribute("data-occludable-job-id") || c.getAttribute("data-job-id") ||
+          ((c.getAttribute("data-entity-urn") || "").match(/(\d+)$/) || [])[1] ||
+          ((enlace && enlace.href.match(/\/jobs\/view\/(?:[^/?]*-)?(\d+)/)) || [])[1];
+        if (!id || vistos.has(id)) return;
+        vistos.add(id);
+        // En orden de preferencia (querySelector con varios selectores devolvería el primero del documento)
+        const titulo = [".job-card-list__title--link", ".job-card-list__title", ".artdeco-entity-lockup__title",
+                        ".base-search-card__title", "a[href*='/jobs/view/']"]
+          .map((sel) => c.querySelector(sel)).filter(Boolean)
+          .map((el) => (el.getAttribute("aria-label") || t(el)).replace(/\s+with verification$/i, "").trim())
+          .find(Boolean) || "";
+        const empresa = t(c.querySelector(".artdeco-entity-lockup__subtitle, .job-card-container__primary-description, .job-card-container__company-name, .base-search-card__subtitle"));
+        const lugar = t(c.querySelector(".job-card-container__metadata-wrapper li, .artdeco-entity-lockup__caption, .job-card-container__metadata-item, .job-search-card__location"));
+        out.push({ url: "https://www.linkedin.com/jobs/view/" + id + "/", title: titulo, company: empresa, location: lugar,
+                   easy_apply: /easy apply|solicitud sencilla|candidatura simplificada|einfach bewerben/i.test(t(c)), apply_url: "" });
+      });
+      return out;
+    },
     extractJob: (doc) => {
       const botones = Array.from(doc.querySelectorAll(".jobs-apply-button, button"));
       const easy = botones.some((b) => /easy apply|solicitud sencilla/i.test(t(b)));

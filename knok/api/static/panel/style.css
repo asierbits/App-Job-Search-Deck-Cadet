@@ -753,3 +753,18 @@ label.mover select { width: auto; margin: 0; padding: 6px 10px; }
 .codigo-caja { display: grid; gap: 6px; margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: var(--superficie-2); font-size: 13px; }
 .codigo-caja code { display: block; padding: 8px 10px; font-size: 12.5px; overflow-wrap: anywhere; user-select: all; }
 .ext-ok::before { content: "● "; color: var(--bien); }
+
+/* ---------- piloto automático ---------- */
+.dialogo-piloto { width: min(620px, calc(100vw - 32px)); }
+.dialogo-piloto fieldset .modo { margin-bottom: 8px; }
+.barra-piloto { position: fixed; z-index: 30; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 10px;
+  width: min(460px, calc(100vw - 32px)); padding: 10px 12px; border-radius: 14px; background: var(--superficie);
+  border: 1px solid color-mix(in srgb, var(--acento) 45%, var(--borde)); box-shadow: 0 10px 30px rgba(0, 0, 0, .18); }
+.barra-piloto .texto-piloto { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.barra-piloto .texto-piloto span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.barra-piloto .pista { height: 5px; margin-top: 5px; }
+.punto-vivo { width: 10px; height: 10px; border-radius: 50%; background: var(--acento); flex: none; animation: latido 1s ease-in-out infinite; }
+.barra-piloto.terminado .punto-vivo { animation: none; background: var(--bien); }
+.btn-icono.mini-icono { width: 28px; height: 28px; border-radius: 8px; }
+@media (max-width: 760px) { .barra-piloto { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); } }
+body:has(#vista-empresas:not([hidden])) .barra-piloto { bottom: calc(118px + env(safe-area-inset-bottom, 0px)); }

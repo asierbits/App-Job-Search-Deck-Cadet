@@ -2,7 +2,7 @@
  * Service worker de knok. Todo empieza por un clic del usuario en el popup: nada corre en segundo plano.
  */
 import { api, settings } from "./lib/api.js";
-import { buildPlan, runBatch } from "./lib/runner.js";
+import { buildPlan, runBatch, runPilot } from "./lib/runner.js";
 
 const CONTENT_FILES = [
   "src/content/core.js", "src/content/adapters/greenhouse.js", "src/content/adapters/lever.js",
@@ -65,6 +65,112 @@ async function openAndFill(item) {
   return fillTab(tab.id, item.id);
 }
 
+// --- piloto automático: una ventana aparte (minimizada) con las pestañas agrupadas como «knok · revisar»
+let pilotWindowId = null;
+let pilotGroupId = null;
+const DIAS_SIN_REPETIR = 3;
+
+async function pilotTab(url, minimized) {
+  if (pilotWindowId !== null) {
+    try {
+      await chrome.windows.get(pilotWindowId);
+      return chrome.tabs.create({ windowId: pilotWindowId, url, active: false });
+    } catch (_) { pilotWindowId = null; pilotGroupId = null; }
+  }
+  const w = await chrome.windows.create({ url, focused: !minimized, ...(minimized ? { state: "minimized" } : {}) });
+  pilotWindowId = w.id;
+  return w.tabs[0];
+}
+
+async function agrupar(tabId) {
+  try {
+    if (pilotGroupId === null) {
+      pilotGroupId = await chrome.tabs.group({ tabIds: [tabId], createProperties: { windowId: pilotWindowId } });
+      await chrome.tabGroups.update(pilotGroupId, { title: "knok · revisar y enviar", color: "blue" });
+    } else {
+      await chrome.tabs.group({ tabIds: [tabId], groupId: pilotGroupId });
+    }
+  } catch (_) { /* sin grupos de pestañas: no pasa nada */ }
+}
+
+async function rellenadas() {
+  const { filled = {} } = await chrome.storage.local.get("filled");
+  return filled;
+}
+
+async function apuntarRellena(id) {
+  const filled = await rellenadas();
+  filled[id] = Date.now();
+  await chrome.storage.local.set({ filled });
+}
+
+async function startPilot({ source = "queue", filters = {}, max = 20, minimized = true } = {}) {
+  if (running) return { error: "Ya hay una tanda en marcha" };
+  running = true; stop = false;
+  const cfg = await api("/extension/config");
+  const filled = await rellenadas();
+  const limite = Date.now() - DIAS_SIN_REPETIR * 86400000;
+  const abrir = async (item) => {
+    const tab = await pilotTab(item.apply_url, minimized);
+    await agrupar(tab.id);
+    await waitLoaded(tab.id);
+    await sleep(1500);
+    const t = await chrome.tabs.get(tab.id);
+    if (/^chrome-error:|^about:blank/.test(t.url || "")) throw new Error("La página no cargó: " + item.apply_url);
+    const r = await fillTab(tab.id, item.id);
+    if (r.blocked) throw new Error(r.blocked);
+    await apuntarRellena(item.id);
+    return r;
+  };
+  runPilot({ api, openAndFill: abrir, sleep, onProgress: progress, shouldStop: () => stop, source, filters,
+             max: Math.min(Math.max(1, max), cfg.limits.batch_size), pause: cfg.limits.pause_between_jobs_seconds,
+             skip: (id) => (filled[id] || 0) > limite })
+    .then((r) => progress({ phase: r.stopped ? "stopped" : "done", result: { prepared: r.prepared.length, oneByOne: r.oneByOne.length,
+                                                                              errors: r.prepared.filter((x) => x.error).length }, pilot: true }))
+    .catch((e) => progress({ phase: "error", error: String(e.message || e) }))
+    .finally(() => { running = false; });
+  return { started: true };
+}
+
+// El panel solo puede mandar si es TU knok (la dirección a la que está conectada la extensión, o tu ordenador)
+async function panelPermitido(sender) {
+  const origen = sender && sender.tab && sender.tab.url ? new URL(sender.tab.url).origin : "";
+  const { apiBase, token } = await settings();
+  const local = /^http:\/\/(localhost|127\.0\.0\.1):8000$/.test(origen);
+  return origen && (origen === new URL(apiBase).origin || (local && !token)) ? origen : null;
+}
+
+async function conectarLocal(origen) {
+  const r = await fetch(origen + "/auth/local?client=extension");
+  if (!r.ok) throw new Error("No se pudo conectar con knok (" + r.status + ")");
+  await chrome.storage.local.set({ apiBase: origen, token: (await r.json()).token });
+}
+
+async function mostrarPiloto() {
+  if (pilotWindowId === null) return { error: "Aún no hay ventana del piloto: pulsa «Rellenar las de knok»." };
+  try { await chrome.windows.update(pilotWindowId, { focused: true, state: "normal" }); }
+  catch (_) { pilotWindowId = null; return { error: "La ventana del piloto se cerró." }; }
+  return { ok: true };
+}
+
+async function desdePanel(msg, sender) {
+  const origen = await panelPermitido(sender);
+  if (!origen) return { error: "Esta página no es tu knok" };
+  const s = await settings();
+  if (!s.token && /^http:\/\/(localhost|127\.0\.0\.1):8000$/.test(origen)) await conectarLocal(origen);
+  const { progress: p } = await chrome.storage.session.get("progress");
+  switch (msg.action) {
+    case "status": {
+      const { token } = await settings();
+      return { connected: !!token, running, progress: p || null, version: chrome.runtime.getManifest().version };
+    }
+    case "pilot:start": return startPilot(msg.payload);
+    case "pilot:stop": stop = true; return { stopping: true };
+    case "pilot:show": return mostrarPiloto();
+    default: return { error: "orden desconocida" };
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   (async () => {
     switch (msg.type) {
@@ -93,6 +199,20 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
       case "knok:fillCurrent": {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         return fillTab(tab.id, null);
+      }
+      case "knok:panel":
+        return desdePanel(msg, sender);
+      case "knok:pilot":
+        return startPilot(msg.payload || {});
+      case "knok:pilotShow":
+        return mostrarPiloto();
+      case "knok:captureList": {
+        // Solo lo que ya está en la pantalla del usuario: no se navega ni se pide nada más al portal
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        await inject(tab.id);
+        const lista = await chrome.tabs.sendMessage(tab.id, { cmd: "captureList" });
+        if (!lista || !lista.length) return { error: "No veo ofertas en esta página. Abre una búsqueda de empleos y baja un poco para que se carguen." };
+        return api("/extension/captures/bulk", { method: "POST", body: { items: lista.slice(0, 60) } });
       }
       case "knok:captureCurrent": {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });

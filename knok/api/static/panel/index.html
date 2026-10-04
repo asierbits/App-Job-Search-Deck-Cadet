@@ -156,7 +156,8 @@
   <section id="vista-empresas" class="vista" hidden>
     <div class="cabecera-vista">
       <h2 class="titulo-vista">Empresas y ofertas</h2>
-      <button class="btn" id="btn-exportar" type="button">⤓ Exportar CSV</button>
+      <div class="fila" style="margin:0"><button class="btn" id="btn-exportar" type="button">⤓ Exportar CSV</button>
+        <button class="btn primario" type="button" data-piloto><svg viewBox="0 0 24 24" class="ico"><path d="M7 4.5v15l12-7.5z"/></svg> Piloto automático</button></div>
     </div>
 
     <!-- Progreso en directo de la búsqueda y el rastreo -->
@@ -244,7 +245,8 @@
     <div class="cabecera-vista">
       <div><h2 class="titulo-vista">Seguimiento</h2>
         <p class="secundario pequeno" style="margin:2px 0 0">Tus candidaturas por fase. Arrastra una tarjeta para cambiarla de columna; pulsa en ella para ver el detalle.</p></div>
-      <input id="filtro-kanban" type="search" class="filtro-kanban" placeholder="Filtrar tarjetas…">
+      <div class="fila" style="margin:0"><input id="filtro-kanban" type="search" class="filtro-kanban" placeholder="Filtrar tarjetas…">
+        <button class="btn primario" type="button" data-piloto><svg viewBox="0 0 24 24" class="ico"><path d="M7 4.5v15l12-7.5z"/></svg> Piloto automático</button></div>
     </div>
     <div class="kanban" id="kanban"></div>
   </section>
@@ -524,6 +526,42 @@
     </div>
   </form>
 </dialog>
+
+<!-- Piloto automático (lo hace la extensión de Chrome) -->
+<dialog id="dialogo-piloto" class="dialogo-piloto">
+  <form id="form-piloto" method="dialog">
+    <div class="dialogo-cabecera"><h2>Piloto automático</h2><button type="button" class="btn enlace" id="piloto-cerrar" aria-label="Cerrar">✕</button></div>
+    <div id="piloto-sin-ext" class="caja-aviso" hidden>
+      <b>Falta la extensión de Chrome.</b> El piloto lo hace la extensión: abre los formularios en una ventana aparte y los rellena.
+      Instálala en <a href="#config" id="piloto-ir-config">Configuración → Extensión de Chrome</a> (2 minutos) y vuelve aquí.
+    </div>
+    <div id="piloto-con-ext">
+      <p class="secundario">Abre en una ventana aparte los formularios de empleo de las empresas y los deja <b>rellenos con tus datos</b>, uno tras otro y con pausas. <b>No pulsa Enviar</b>: al terminar, revisas cada pestaña y la envías tú. LinkedIn nunca se toca.</p>
+      <fieldset><legend>Qué rellenar</legend>
+        <label class="modo"><input type="radio" name="fuente" value="tabla" checked>
+          <span><b>Las ofertas con formulario que ya tengo</b><br><span class="secundario pequeno" id="piloto-n-tabla"></span></span></label>
+        <label class="modo"><input type="radio" name="fuente" value="search">
+          <span><b>Buscar ofertas nuevas y rellenarlas</b><br><span class="secundario pequeno">Con lo que tienes en «¿Qué buscas?» (palabras clave, países, ciudades).</span></span></label>
+      </fieldset>
+      <div class="dos-cols iguales">
+        <label>Cuántas como mucho<select name="max"><option>5</option><option selected>10</option><option>20</option><option>40</option></select></label>
+        <label class="casilla bloque" style="align-self:end"><input type="checkbox" name="minimizada" checked><span>En una ventana aparte, minimizada (sigue en segundo plano)</span></label>
+      </div>
+    </div>
+    <div class="fila-entre" style="margin-top:12px">
+      <span class="pequeno secundario">Las de LinkedIn quedan para hacerlas de una en una.</span>
+      <button type="submit" class="btn primario" id="piloto-empezar">Empezar</button>
+    </div>
+  </form>
+</dialog>
+<div class="barra-piloto" id="barra-piloto" hidden role="status" aria-live="polite">
+  <span class="punto-vivo" aria-hidden="true"></span>
+  <div class="texto-piloto"><b id="piloto-titulo">Piloto automático</b><span id="piloto-detalle" class="pequeno secundario"></span>
+    <div class="pista"><div class="pista-relleno" id="piloto-barra"></div></div></div>
+  <button type="button" class="btn mini" id="piloto-ver" hidden>Ver la ventana</button>
+  <button type="button" class="btn mini" id="piloto-detener">Detener</button>
+  <button type="button" class="btn-icono mini-icono" id="piloto-cerrar-barra" aria-label="Ocultar" hidden>✕</button>
+</div>
 
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
