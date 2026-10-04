@@ -1,0 +1,93 @@
+{
+ "_comment": "Datos FICTICIOS para Simulación y tests.",
+ "jobs": [
+  {
+   "source_job_id": "gh-p1",
+   "title": "PhD Position in Computational Biology",
+   "company_name": "Instituto Ficticio de Investigación",
+   "company_website": "https://ific-research.example.org",
+   "city": "Barcelona",
+   "country": "es",
+   "description": "Fully funded 4-year doctoral position in our research group. Master's degree required.",
+   "url": "https://boards.greenhouse.io/knoksample-ific/jobs/3001",
+   "apply_url": "https://boards.greenhouse.io/knoksample-ific/jobs/3001",
+   "days_ago": 3,
+   "questions": [
+    {
+     "id": "first_name",
+     "label": "First Name",
+     "type": "text",
+     "required": true,
+     "options": []
+    },
+    {
+     "id": "last_name",
+     "label": "Last Name",
+     "type": "text",
+     "required": true,
+     "options": []
+    },
+    {
+     "id": "email",
+     "label": "Email",
+     "type": "text",
+     "required": true,
+     "options": []
+    },
+    {
+     "id": "resume",
+     "label": "CV",
+     "type": "file",
+     "required": true,
+     "options": []
+    },
+    {
+     "id": "question_1",
+     "label": "Research statement",
+     "type": "textarea",
+     "required": true,
+     "options": []
+    },
+    {
+     "id": "question_2",
+     "label": "Proposed supervisor",
+     "type": "text",
+     "required": false,
+     "options": []
+    }
+   ]
+  },
+  {
+   "source_job_id": "ab-p2",
+   "title": "Doctoral Researcher – Marine Ecology",
+   "company_name": "Nordic Ocean Lab",
+   "company_website": "https://nordicocean.example.net",
+   "city": "Bergen",
+   "country": "no",
+   "description": "Doctoral researcher position with our marine ecology research group.",
+   "url": "https://jobs.ashbyhq.com/knoksample-nordic/2a8b7c6d-1111-2222-3333-444455556666",
+   "apply_url": "https://jobs.ashbyhq.com/knoksample-nordic/2a8b7c6d-1111-2222-3333-444455556666/application",
+   "days_ago": 6
+  }
+ ],
+ "companies": [
+  {
+   "name": "Universidad Ficticia de Bilbao",
+   "website": "https://ufb.example.com",
+   "email": "doctorado@ufb.example.com",
+   "city": "Bilbao",
+   "country": "es",
+   "sector": "Universidad",
+   "kind": "institution"
+  },
+  {
+   "name": "Centro de Investigación Ejemplo",
+   "website": "https://cie.example.org",
+   "email": "info@cie.example.org",
+   "city": "Madrid",
+   "country": "es",
+   "sector": "Centro de investigación",
+   "kind": "institution"
+  }
+ ]
+}

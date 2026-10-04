@@ -1,0 +1,55 @@
+{
+ "jobs": [
+  {
+   "absolute_url": "https://boards.greenhouse.io/acme/jobs/4012345",
+   "data_compliance": [],
+   "internal_job_id": 111,
+   "location": {
+    "name": "Madrid, Spain"
+   },
+   "metadata": null,
+   "id": 4012345,
+   "updated_at": "2026-09-20T10:00:00-04:00",
+   "requisition_id": "R1",
+   "title": "Backend Engineer (m/f/d)",
+   "company_name": "Acme Corp",
+   "first_published": "2026-09-18T08:00:00-04:00",
+   "content": "&lt;p&gt;We build &lt;strong&gt;APIs&lt;/strong&gt; in Python.&lt;/p&gt;&lt;ul&gt;&lt;li&gt;PostgreSQL&lt;/li&gt;&lt;/ul&gt;",
+   "departments": [
+    {
+     "id": 1,
+     "name": "Engineering"
+    }
+   ],
+   "offices": [
+    {
+     "id": 2,
+     "name": "Madrid",
+     "location": "Madrid, Spain"
+    }
+   ]
+  },
+  {
+   "absolute_url": "https://boards.greenhouse.io/acme/jobs/4012346",
+   "internal_job_id": 112,
+   "location": {
+    "name": "Remote - Europe"
+   },
+   "id": 4012346,
+   "updated_at": "2026-09-21T10:00:00Z",
+   "title": "Data Analyst",
+   "content": "&lt;p&gt;SQL and dashboards.&lt;/p&gt;",
+   "departments": [],
+   "offices": [
+    {
+     "id": 3,
+     "name": "Berlin",
+     "location": "Berlin, Germany"
+    }
+   ]
+  }
+ ],
+ "meta": {
+  "total": 2
+ }
+}

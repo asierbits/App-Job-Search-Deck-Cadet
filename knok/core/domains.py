@@ -5,8 +5,11 @@ from functools import lru_cache
 
 import tldextract
 
-# Lista de sufijos incluida en el paquete: nunca se descarga en ejecución
-_extract = tldextract.TLDExtract(suffix_list_urls=(), cache_dir=None)
+# Lista de sufijos incluida en el paquete: nunca se descarga en ejecución.
+# Los dominios reservados (RFC 2606) cuentan como sufijo para que los datos de ejemplo
+# (empresa-a.example.com, empresa-b.example.com) sean empresas distintas.
+RESERVED_SUFFIXES = ("example.com", "example.org", "example.net")
+_extract = tldextract.TLDExtract(suffix_list_urls=(), cache_dir=None, extra_suffixes=RESERVED_SUFFIXES)
 
 FREE_PROVIDERS = {
     "gmail.com", "googlemail.com", "hotmail.com", "hotmail.es", "hotmail.fr", "outlook.com", "outlook.es",

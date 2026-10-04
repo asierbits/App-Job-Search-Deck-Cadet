@@ -1,0 +1,47 @@
+{
+ "_comment": "Datos FICTICIOS para Simulación y tests.",
+ "jobs": [
+  {
+   "source_job_id": "gh-g1",
+   "title": "Backend Engineer (m/w/d)",
+   "company_name": "Acme Software",
+   "company_website": "https://acmesoftware.example.com",
+   "city": "Madrid",
+   "country": "es",
+   "description": "Python, PostgreSQL and APIs.",
+   "url": "https://boards.greenhouse.io/knoksample-acme/jobs/2001",
+   "apply_url": "https://boards.greenhouse.io/knoksample-acme/jobs/2001",
+   "days_ago": 1
+  },
+  {
+   "source_job_id": "lv-g2",
+   "title": "Marketing Intern",
+   "company_name": "Brightside Media",
+   "company_website": "https://brightside.example.org",
+   "city": "Barcelona",
+   "country": "es",
+   "description": "Internship in digital marketing.",
+   "url": "https://jobs.lever.co/knoksample-brightside/1f9b1c2d-1111-2222-3333-444455556666",
+   "apply_url": "https://jobs.lever.co/knoksample-brightside/1f9b1c2d-1111-2222-3333-444455556666/apply",
+   "days_ago": 4
+  }
+ ],
+ "companies": [
+  {
+   "name": "Consultora Ejemplo",
+   "website": "https://consultora.example.com",
+   "email": "rrhh@consultora.example.com",
+   "city": "Bilbao",
+   "country": "es",
+   "sector": "Consultoría"
+  },
+  {
+   "name": "Ingeniería Ficticia",
+   "website": "https://ingficticia.example.net",
+   "email": "info@ingficticia.example.net",
+   "city": "Bilbao",
+   "country": "es",
+   "sector": "Ingeniería"
+  }
+ ]
+}

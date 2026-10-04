@@ -45,7 +45,8 @@ crawl:
                      flota, fleet, personal.flota, jobs, job, careers, career, karriere, bewerbung, empleo,
                      rrhh, hr, recruiting, recruitment, talent, seleccion, people, personal, practicas,
                      internship, trainee]
-  extra_generic: [cadet, cadets, crewing, crew, manning, seafarer, marinehr, tripulacion, flota, fleet, alumnos]
+  extra_generic: [cadet, cadets, cadete, cadetes, crewing, crew, manning, seafarer, seafarers, marine, marinehr,
+                  tripulacion, flota, fleet, alumnos, practicas]
   commercial: [chartering, chart, operations, operaciones, carga, cargo, freight, fletes, traffic, trafico,
                booking, reservas, reservations, tickets, billetes]
   mentions:

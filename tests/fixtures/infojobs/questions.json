@@ -1,0 +1,42 @@
+{
+ "killerQuestions": [
+  {
+   "id": 11,
+   "question": "¿Tienes permiso de trabajo en España?",
+   "answers": [
+    {
+     "id": 111,
+     "answer": "Sí"
+    },
+    {
+     "id": 112,
+     "answer": "No"
+    }
+   ]
+  },
+  {
+   "id": 12,
+   "question": "¿Cuántos años de experiencia tienes con Python?",
+   "answers": [
+    {
+     "id": 121,
+     "answer": "Menos de 1"
+    },
+    {
+     "id": 122,
+     "answer": "Entre 1 y 3"
+    },
+    {
+     "id": 123,
+     "answer": "Más de 3"
+    }
+   ]
+  }
+ ],
+ "openQuestions": [
+  {
+   "id": 21,
+   "question": "¿Por qué te interesa este puesto?"
+  }
+ ]
+}

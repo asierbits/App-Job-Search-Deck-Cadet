@@ -1,0 +1,34 @@
+{
+ "totalResults": 1,
+ "currentPage": 1,
+ "pageSize": 50,
+ "totalPages": 1,
+ "offers": [
+  {
+   "id": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3",
+   "title": "Desarrollador Python",
+   "province": {
+    "id": 33,
+    "value": "Madrid"
+   },
+   "city": "Madrid",
+   "link": "https://www.infojobs.net/madrid/desarrollador-python/of-ia1b2c3d4e5f6a1b2c3d4e5f6a1b2c3",
+   "category": {
+    "id": 1,
+    "value": "Inform\u00e1tica"
+   },
+   "teleworking": {
+    "id": 2,
+    "value": "H\u00edbrido"
+   },
+   "published": "2026-09-20T09:00:00.000Z",
+   "author": {
+    "id": "x1",
+    "name": "Acme Corp",
+    "uri": "acme"
+   },
+   "requirementMin": "<p>2 a\u00f1os de experiencia con Python</p>",
+   "salaryDescription": "30.000\u20ac - 40.000\u20ac Bruto/a\u00f1o"
+  }
+ ]
+}

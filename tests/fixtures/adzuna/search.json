@@ -1,0 +1,51 @@
+{
+ "count": 2,
+ "mean": 0,
+ "results": [
+  {
+   "id": "4412345678",
+   "title": "<strong>Backend</strong> Engineer",
+   "description": "We build APIs in Python &amp; Go\u2026",
+   "redirect_url": "https://www.adzuna.es/land/ad/4412345678?se=x",
+   "created": "2026-09-22T06:00:00Z",
+   "company": {
+    "display_name": "Acme Corp"
+   },
+   "location": {
+    "display_name": "Madrid, Comunidad de Madrid",
+    "area": [
+     "Espa\u00f1a",
+     "Comunidad de Madrid",
+     "Madrid"
+    ]
+   },
+   "salary_min": 40000,
+   "salary_max": 55000,
+   "category": {
+    "label": "IT Jobs"
+   },
+   "contract_time": "full_time"
+  },
+  {
+   "id": "4412345679",
+   "title": "Waiter",
+   "description": "Restaurant",
+   "redirect_url": "https://www.adzuna.es/land/ad/4412345679",
+   "created": "2026-09-22T06:00:00Z",
+   "company": {
+    "display_name": "Bar Pepe"
+   },
+   "location": {
+    "display_name": "Bilbao",
+    "area": [
+     "Espa\u00f1a",
+     "Pa\u00eds Vasco",
+     "Bilbao"
+    ]
+   },
+   "category": {
+    "label": "Hospitality"
+   }
+  }
+ ]
+}
