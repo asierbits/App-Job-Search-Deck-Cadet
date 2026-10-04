@@ -1,6 +1,6 @@
 # knok — plan del motor (propuesta para aprobar)
 
-> Estado: **propuesta**. No hay código nuevo hasta que se apruebe. Las preguntas abiertas están al final (§10).
+> Estado: **aprobado e implementado** (fases 1–8 y parte de la 9). Las decisiones tomadas están en §10 y el estado en §11.
 
 ## 0. Resumen en 10 líneas
 
@@ -363,25 +363,35 @@ Commits pequeños por fase; todo en Simulación y sin red en los tests.
 
 ---
 
-## 10. Preguntas abiertas
+## 10. Decisiones tomadas
 
-**Bloquean la fase 1–2**
+El usuario delegó las decisiones técnicas ("haz lo que creas mejor"). Se decidió:
 
-1. **Tu web**: ¿qué stack usa (Next.js, WordPress, Webflow, Wix…) y qué login (Supabase, Firebase, Auth0, Clerk, NextAuth, propio, ninguno)? Si ya emite JWT, el motor solo los verifica (JWKS) y no hay segundo login; si no, knok tiene sus propias cuentas (email + contraseña, tokens).
-2. **Alojamiento y presupuesto**: ¿dónde correrá el backend (VPS tipo Hetzner ~5 €/mes, Fly/Railway/Render, tu servidor)? ¿Los CV en disco del servidor o en almacenamiento S3‑compatible (p. ej. Cloudflare R2, plan gratis)? ¿Alojamiento en la UE?
-3. **Cola**: ¿te vale una cola sobre Postgres (sin Redis), o prefieres Celery/RQ + Redis?
-4. **Respuestas** (§6): ¿apruebas A (manual) + B (reenvío con filtro de Gmail) y dejar D para más adelante?
-5. **Este repositorio**: ¿construyo knok aquí (moviendo el panel actual a `legacy/` y etiquetándolo `v1-panel-local`) o prefieres un repositorio nuevo?
+1. **Login**: la web es Next.js sin sistema de login definido → knok tiene sus propias cuentas (email +
+   contraseña, tokens Bearer revocables; token aparte para la extensión). Si la web adopta un proveedor con JWT,
+   se verifica en `knok/api/deps.py`.
+2. **Alojamiento**: sin decidir → todo en Docker (API + worker + Postgres), desplegable en cualquier VPS/PaaS.
+   CVs en disco (`KNOK_STORAGE_DIR`) detrás de una interfaz mínima para pasar a S3/R2.
+3. **Cola**: propia sobre Postgres (`SELECT … FOR UPDATE SKIP LOCKED`), sin Redis.
+4. **Respuestas**: A (marcado manual) + B (reenvío con filtro de Gmail importable). D (scope restringido) descartado por ahora.
+5. **Repositorio**: knok vive aquí; el panel anterior está en `legacy/` y en la etiqueta `v1-panel-local`.
+6. **Correos personales en ofertas**: se descartan siempre (ni base común ni candidatura).
+7. **Envío**: el usuario selecciona las candidaturas y **aprueba una vez** (`POST /batches/{id}/send`).
+8. **LinkedIn**: copiloto de una en una; nunca en tanda.
+9. **Capturas**: a la base común solo hechos mínimos; la descripción queda en la candidatura del usuario.
+10. **Extensión**: JavaScript sin paso de compilación. **Idiomas**: es y en (diccionario de preguntas también fr/de/it/pt).
+11. **Límite por defecto**: 30 correos/día y 45 s de pausa, ajustable hasta el tope de Gmail.
 
-**Pueden esperar a su fase**
+## 11. Estado
 
-6. **Correos personales en ofertas** ("manda tu CV a maria.lopez@…"): ¿se permiten solo dentro de esa candidatura del usuario (nunca en la base común) o se descartan siempre?
-7. **Google Cloud**: ¿creas tú el proyecto OAuth (y más adelante la verificación con política de privacidad, dominio y vídeo)? ¿Cuál será el dominio de knok (lo necesito también para el User-Agent del rastreador y su página informativa)?
-8. **InfoJobs**: ¿tienes ya una app registrada en su portal de desarrolladores con permisos de candidato?
-9. **LinkedIn**: ¿aceptas el copiloto de una en una (§7.2) en vez de tandas de 40 pestañas?
-10. **Capturas de portales** (§7.1): ¿de acuerdo con guardar en la base común solo hechos mínimos y dejar la descripción en el CRM privado?
-11. **Extensión**: ¿JavaScript sin compilación (más fácil de tocar) o TypeScript con un paso de build?
-12. **Idiomas y países**: además de es/en, ¿cuáles vienen después? ¿Español también para Latinoamérica y Portugués para PT/BR?
-13. **Límite de envíos por defecto**: propongo 30/día y 45 s de pausa, ajustable hasta 400/día. ¿Te parece?
-14. **Pack de doctorados**: ¿tienes fuentes concretas en mente (EURAXESS, jobs.ac.uk, Academic Positions, convocatorias de universidades)? Habría que revisar sus condiciones de uso una a una.
-15. **Administración**: ¿quién revisa las preguntas nuevas antes de pasarlas al diccionario del pack? Propongo un rol `admin` con su API.
+| Fase | Estado |
+|---|---|
+| 1 Estructura, stack, modelo de datos | Hecho |
+| 2 Cuentas, perfil, banco, packs (marina mercante + doctorados) | Hecho |
+| 3 Greenhouse, Lever, Ashby, Adzuna, InfoJobs; limpieza; enrutador | Hecho (validar en vivo con claves) |
+| 4 OSM + Wikidata + directorios, rastreo, Gmail OAuth, modos | Hecho |
+| 5 Motor de relleno sin IA + revisión | Hecho |
+| 6 Extensión Greenhouse/Lever/Ashby | Hecho |
+| 7 Seguimiento y CSV | Hecho |
+| 8 Copiloto LinkedIn | Hecho (una en una, con aviso) |
+| 9 Fase 2 de plataformas | Beta genérica (Workable, SmartRecruiters, Recruitee, Teamtailor, Personio); Workday pendiente. Fase 3 pendiente |
