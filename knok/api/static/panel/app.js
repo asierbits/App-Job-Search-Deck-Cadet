@@ -147,11 +147,33 @@ function pedirLogin() {
 
 function aviso(mensaje, tipo = "") {
   const div = document.createElement("div");
-  div.className = "aviso " + tipo;
-  div.textContent = mensaje;
-  $("#avisos").prepend(div);
-  setTimeout(() => div.remove(), 7000);
+  div.className = "toast " + tipo;
+  div.setAttribute("role", tipo === "critico" ? "alert" : "status");
+  div.innerHTML = `<span>${esc(mensaje)}</span><button class="cerrar-t" aria-label="Cerrar">✕</button>`;
+  div.lastChild.addEventListener("click", () => div.remove());
+  $("#toasts").append(div);
+  while ($("#toasts").children.length > 4) $("#toasts").firstChild.remove();
+  setTimeout(() => div.remove(), tipo === "critico" ? 9000 : 5500);
 }
+
+// ------------------------------------------------------------ tema claro / oscuro (se recuerda en este navegador)
+
+function temaEfectivo() {
+  const t = document.documentElement.dataset.theme;
+  return t || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+}
+(function aplicarTema() {
+  let t = null;
+  try { t = localStorage.getItem("knok-tema"); } catch {}
+  if (t === "dark" || t === "light") document.documentElement.dataset.theme = t;
+})();
+$("#btn-tema").addEventListener("click", () => {
+  const nuevo = temaEfectivo() === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = nuevo;
+  try { localStorage.setItem("knok-tema", nuevo); } catch {}
+  st.firmaGrafico = "";
+  if (st.estado) pintarGrafico(st.estado.summary.daily);
+});
 
 // ------------------------------------------------------------ utilidades de presentación
 
@@ -180,7 +202,7 @@ function urlSegura(u) {
 }
 const enlace = (u, t) => (u ? `<a href="${urlSegura(u)}" target="_blank" rel="noopener">${esc(t || u)}</a>` : "—");
 const listaCorta = (xs) => (xs.length <= 3 ? xs.join(", ") : `${xs.slice(0, 3).join(", ")} y ${xs.length - 3} más`);
-const icono = () => ICONO_NICHO[(st.estado && st.estado.pack.slug) || ""] || "★";
+const icono = () => ICONO_NICHO[(st.estado && st.estado.pack.slug) || ""] || (st.estado && st.estado.pack.custom ? "◆" : "★");
 const tamano = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(b / 1024)) + " KB");
 const guardarLocal = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 const leerLocal = (k) => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } };
@@ -194,13 +216,14 @@ function mostrar(vista) {
   $$(".vista").forEach((s) => (s.hidden = s.id !== "vista-" + vista));
   if (vista === "empresas") cargarTabla();
   if (vista === "respuestas") cargarRespuestas();
+  if (vista === "seguimiento") { pintarKanban(); if (!st.filas.length) cargarTabla(); }
   if (vista === "config" && !st.sucio) cargarConfig();
   if (vista === "panel" && st.estado) { st.firmaGrafico = ""; pintarGrafico(st.estado.summary.daily); }
 }
 $$(".pestana").forEach((b) => b.addEventListener("click", () => mostrar(b.dataset.vista)));
 window.addEventListener("hashchange", () => {
   const v = location.hash.slice(1);
-  if (v !== st.vista && ["panel", "empresas", "respuestas", "config"].includes(v)) mostrar(v);
+  if (v !== st.vista && ["panel", "empresas", "seguimiento", "respuestas", "config"].includes(v)) mostrar(v);
 });
 document.addEventListener("click", (ev) => {
   const ir = ev.target.closest("[data-ir]");
@@ -228,13 +251,15 @@ async function refrescar() {
   if (st.vista !== "respuestas") { st.respuestas = e.replies; pintarUltimas(); }
   else if (!antes || antes.replies.length !== e.replies.length || antes.summary.unread_replies !== e.summary.unread_replies) cargarRespuestas();
 
-  if (st.vista === "empresas") {
-    pintarTarjetaRastreo(e);
-    const firma = [e.search && e.search.id, e.search && e.search.status, e.search && e.search.stats.results,
-      JSON.stringify(e.summary.by_status), e.replies.length, e.profile.mode].join("|");
-    const vivo = buscando(e) && Date.now() - st.ultimaTabla > 3000;
-    if (firma !== st.firmaTabla || vivo) { st.firmaTabla = firma; cargarTabla(); }
-  }
+  if (st.vista === "empresas") pintarTarjetaRastreo(e);
+  // La tabla alimenta también el desglose del panel y el tablero de seguimiento
+  const firma = [e.search && e.search.id, e.search && e.search.status, e.search && e.search.stats.results,
+    JSON.stringify(e.summary.by_status), e.replies.length, e.profile.mode, e.pack.slug].join("|");
+  const vivo = buscando(e) && Date.now() - st.ultimaTabla > (st.vista === "empresas" ? 3000 : 8000);
+  if (firma !== st.firmaTabla || vivo) { st.firmaTabla = firma; cargarTabla(); }
+  const firmaB = e.search ? `${e.search.id}|${e.search.status}|${e.pack.slug}` : e.pack.slug;
+  if (firmaB !== st.firmaBusquedas) { st.firmaBusquedas = firmaB; cargarBusquedas(); }
+  pintarConsejo(e);
   if (!st.dialogoCuentaMostrado) {
     st.dialogoCuentaMostrado = true;
     let omitido = false;
@@ -364,27 +389,7 @@ function pintarPanel(e) {
   barra.classList.toggle("indeterminado", buscando(e) && !prog.total);
   barra.style.width = prog.total ? (prog.done / prog.total) * 100 + "%" : "0";
 
-  // Embudo
-  const rutas = stats.routes || {};
-  const f = prog.found || {};
-  const etapas = [
-    { txt: "Encontradas", valor: encontradas, icono: ICONOS.buscar, color: "var(--tinta-2)",
-      sub: [rutas.email && `${rutas.email} por correo`, (rutas.ats_extension || 0) + (rutas.portal_copilot || 0) ? `${(rutas.ats_extension || 0) + (rutas.portal_copilot || 0)} con formulario` : "",
-        f.mentions && `${icono()} ${f.mentions} encajan`].filter(Boolean).join(" · ") },
-    { txt: "Contactadas", valor: enviadas, icono: ICONOS.enviar, color: "var(--serie-1)", conv: pct(enviadas, encontradas),
-      sub: e.profile.mode === "simulation" ? `${b.prepared || 0} preparadas sin enviar` : `${s.sent_today ?? 0}/${s.daily_limit} hoy · ${b.prepared || 0} preparadas` },
-    { txt: "Respondieron", valor: respondidas, icono: ICONOS.respuesta, color: "var(--serie-2)", conv: pct(respondidas, enviadas),
-      sub: `tasa de respuesta ${s.response_rate == null ? "—" : Math.round(s.response_rate * 100) + "%"}` },
-    { txt: "Entrevistas", valor: entrevistas, icono: ICONOS.objetivo, color: "var(--bien)", conv: pct(entrevistas, respondidas), sub: entrevistas ? "¡a prepararlas!" : "" },
-  ];
-  $("#embudo").innerHTML = etapas.map((t, i) => `
-    ${i ? `<div class="conector" title="Conversión desde la etapa anterior">${ICONOS.flecha}<span>${t.conv}</span></div>` : ""}
-    <div class="etapa" style="--color-etapa:${t.color}">
-      <div class="etapa-icono">${t.icono}</div>
-      <div class="etapa-etiqueta">${t.txt}</div>
-      <div class="kpi-valor">${t.valor}</div>
-      <div class="etapa-sub">${esc(t.sub)}</div>
-    </div>`).join("");
+  pintarKpis(e);
 
   const cats = Object.keys(CATEGORIAS).map((c) => ({ c, v: s.replies_by_category[c] || 0 }));
   const total = cats.reduce((a, x) => a + x.v, 0);
@@ -397,6 +402,129 @@ function pintarPanel(e) {
       <div class="barra-valor">${v}</div>`).join("");
 
   if (st.vista === "panel") pintarGrafico(s.daily);
+}
+
+// ------------------------------------------------------------ cifras clave (valor, variación y minigráfico)
+
+const suma = (xs) => xs.reduce((a, x) => a + x, 0);
+
+function delta(actual, previo) {
+  if (!previo && !actual) return `<span class="delta igual">sin cambios</span>`;
+  if (!previo) return `<span class="delta sube" title="La semana anterior: 0">▲ nuevo</span>`;
+  const d = Math.round(((actual - previo) / previo) * 100);
+  const clase = d > 0 ? "sube" : d < 0 ? "baja" : "igual";
+  return `<span class="delta ${clase}" title="Semana anterior: ${previo}">${d > 0 ? "▲" : d < 0 ? "▼" : "="} ${Math.abs(d)}%</span>`;
+}
+
+function sparkline(valores, clase = "") {
+  const W = 200, H = 34, max = Math.max(1, ...valores), n = valores.length;
+  const x = (i) => (i / (n - 1)) * (W - 6) + 3, y = (v) => H - 4 - (v / max) * (H - 10);
+  const puntos = valores.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`);
+  return `<svg class="sparkline ${clase}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+    <path class="area" d="M${x(0)},${H} L${puntos.join(" L")} L${x(n - 1)},${H} Z"/>
+    <polyline class="linea" points="${puntos.join(" ")}" vector-effect="non-scaling-stroke"/>
+    <circle class="punto" cx="${x(n - 1)}" cy="${y(valores[n - 1])}" r="4"/></svg>`;
+}
+
+function pintarKpis(e) {
+  const s = e.summary, b = s.by_status, d = s.daily;
+  const env = d.map((x) => x.sent), resp = d.map((x) => x.replies);
+  const env7 = suma(env.slice(7)), envAntes = suma(env.slice(0, 7));
+  const resp7 = suma(resp.slice(7)), respAntes = suma(resp.slice(0, 7));
+  // La última búsqueda con resultados (si la más reciente se detuvo sin nada, cuentan los de la anterior)
+  const busq = buscando(e) || !st.busquedaTabla ? e.search : st.busquedaTabla;
+  const stats = (busq && busq.stats) || {}, rutas = stats.routes || {};
+  const enviadas = (b.sent || 0) + (b.replied || 0) + (b.interview || 0);
+  const tasa = s.response_rate == null ? null : Math.round(s.response_rate * 100);
+  const formularios = (rutas.ats_extension || 0) + (rutas.portal_copilot || 0) + (rutas.portal_api || 0);
+  const tiles = [
+    { et: "Encontradas", num: stats.results || 0, extra: "",
+      sub: [rutas.email && `${rutas.email} por correo`, formularios && `${formularios} con formulario`].filter(Boolean).join(" · ") || "en tu última búsqueda" },
+    { et: "Enviadas", num: env7, extra: delta(env7, envAntes), sub: `últimos 7 días · ${enviadas} en total`, chart: sparkline(env) },
+    { et: "Respuestas", num: resp7, extra: delta(resp7, respAntes), sub: `últimos 7 días · ${s.unread_replies} sin leer`, chart: sparkline(resp, "s2") },
+    { et: "Tasa de respuesta", num: tasa == null ? "—" : `${tasa}<small>%</small>`, extra: "",
+      sub: tasa == null ? "cuando envíes las primeras" : `${(b.replied || 0) + (b.interview || 0)} de ${enviadas} contestaron`,
+      chart: `<div class="medidor" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${tasa || 0}"><div style="width:${tasa || 0}%"></div></div>` },
+    { et: "Entrevistas", num: b.interview || 0, extra: "", sub: b.interview ? "¡a prepararlas!" : s.followups_due ? `${s.followups_due} para hacer seguimiento` : "aún ninguna" },
+  ];
+  $("#kpis").innerHTML = tiles.map((t) => `
+    <div class="kpi"><div class="kpi-cabecera"><span class="kpi-etiqueta">${t.et}</span>${t.extra}</div>
+      <div class="kpi-num">${t.num}</div><div class="kpi-sub" title="${esc(t.sub)}">${esc(t.sub)}</div>${t.chart || ""}</div>`).join("");
+}
+
+// ------------------------------------------------------------ desglose (países, sectores, vías) que filtra la tabla
+
+st.desglose = "pais";
+function pintarDesglose() {
+  const filas = st.filas.filter((x) => x.status === "new" || ABIERTOS.includes(x.status));
+  const clave = { pais: (x) => x.country || "", sector: (x) => x.sector || (x.kind === "job" ? "Ofertas" : ""), via: (x) => x.route }[st.desglose];
+  const nombre = { pais: nombrePais, sector: (v) => v || "Sin sector", via: (v) => (VIAS[v] || [v])[0] }[st.desglose];
+  const cuenta = {};
+  filas.forEach((x) => { const k = clave(x); cuenta[k] = (cuenta[k] || 0) + 1; });
+  const filasO = Object.entries(cuenta).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const max = Math.max(1, ...filasO.map((x) => x[1]));
+  $("#lista-desglose").innerHTML = filasO.length
+    ? filasO.map(([k, n]) => `<li><button type="button" data-filtrar="${esc(k)}" style="--parte:${(n / max) * 100}%">
+        <span>${esc(nombre(k))}</span><span class="n">${n}</span></button></li>`).join("")
+    : `<li class="vacio">Aquí verás de dónde son las empresas y ofertas que encuentres.</li>`;
+}
+$("#selector-desglose").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-desglose]");
+  if (!b) return;
+  st.desglose = b.dataset.desglose;
+  $$("#selector-desglose button").forEach((x) => x.classList.toggle("activo", x === b));
+  pintarDesglose();
+});
+$("#lista-desglose").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-filtrar]");
+  if (!b) return;
+  for (const s of ["#filtro-texto", "#filtro-estado", "#filtro-tipo", "#filtro-via", "#filtro-pais", "#filtro-mencion"]) $(s).value = "";
+  const v = b.dataset.filtrar;
+  if (st.desglose === "pais") { pintarTabla(); $("#filtro-pais").value = v; }
+  else if (st.desglose === "via") $("#filtro-via").value = v;
+  else $("#filtro-texto").value = v === "Ofertas" ? "" : v;
+  if (st.desglose === "sector" && v === "Ofertas") $("#filtro-tipo").value = "job";
+  mostrar("empresas");
+  pintarTabla();
+});
+
+// ------------------------------------------------------------ búsquedas recientes y consejo del momento
+
+async function cargarBusquedas() {
+  const lista = await api("/searches?limit=6").catch(() => []);
+  st.busquedas = lista;
+  const packs = new Map((st.estado.packs || []).map((p) => [p.slug, p.name]));
+  const estado = { done: "", cancelled: " · detenida", error: " · falló", running: " · en marcha", queued: " · en cola", cancelling: " · deteniendo" };
+  $("#lista-busquedas").innerHTML = lista.length ? lista.map((b) => {
+    const p = b.params || {};
+    const que = (p.keywords || []).join(", ") || packs.get(p.pack) || "Búsqueda";
+    const donde = (p.cities || []).length ? listaCorta(p.cities) : (p.countries || []).length ? listaCorta((p.countries || []).map(nombrePais)) : "todos los países";
+    return `<li><span class="que" title="${esc(que)}">${esc(que)}</span>
+      <span class="meta-b">${esc(donde)} · ${(b.stats || {}).results || 0} resultados · ${esc(fecha(b.created_at))}${estado[b.status] || ""}</span>
+      ${["queued", "running", "cancelling"].includes(b.status) ? "" : `<button type="button" class="btn mini" data-repetir="${b.id}" title="Volver a lanzar esta búsqueda">↻ Repetir</button>`}</li>`;
+  }).join("") : `<li class="vacio" style="display:block;padding:12px 0">Aún no has buscado nada.</li>`;
+}
+$("#lista-busquedas").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-repetir]");
+  if (!b) return;
+  const busq = (st.busquedas || []).find((x) => x.id === Number(b.dataset.repetir));
+  if (busq) lanzarBusqueda({ ...busq.params });
+});
+
+function pintarConsejo(e) {
+  const b = st.busqueda || {};
+  const ciudades = (b.cities || "").trim();
+  let t = "";
+  if (e.pack.company_sources.osm && !ciudades && !e.pack.company_sources.directories && !e.pack.company_sources.wikidata)
+    t = "<b>Añade al menos una ciudad.</b> Las empresas de tu nicho se buscan en el mapa alrededor de tus ciudades.";
+  else if (!e.sources_ready.adzuna && !e.sources_ready.infojobs)
+    t = "<b>¿Quieres más ofertas publicadas?</b> Con las claves gratuitas de Adzuna (o InfoJobs) en el archivo <code>.env</code> también buscaré en esos portales.";
+  else if (e.sending_problems.some((p) => p.code === "missing_cv"))
+    t = "<b>Sube tu CV</b> en Configuración → Archivos adjuntos para poder enviar.";
+  else if (!e.connections.google.connected)
+    t = "<b>Conecta tu Gmail</b> para pasar de Simulación a Prueba real o a Real.";
+  else t = "<b>Truco:</b> en Empresas y ofertas, «Seleccionar recomendadas» marca las que mejor encajan y no tienen avisos.";
+  $("#consejo").innerHTML = t;
 }
 
 // ------------------------------------------------------------ gráfico diario
@@ -487,7 +615,14 @@ function busquedaPorDefecto() {
 
 function prepararBusqueda() {
   const e = st.estado;
-  $("#sel-pack").innerHTML = e.packs.map((p) => `<option value="${esc(p.slug)}" ${p.slug === e.pack.slug ? "selected" : ""}>${esc((ICONO_NICHO[p.slug] || "★") + " " + p.name)}</option>`).join("");
+  const opcion = (p) => `<option value="${esc(p.slug)}" ${p.slug === e.pack.slug ? "selected" : ""}>${esc((ICONO_NICHO[p.slug] || (p.custom ? "◆" : "★")) + " " + p.name)}</option>`;
+  const propios = e.packs.filter((p) => p.custom);
+  $("#sel-pack").innerHTML = `<optgroup label="Nichos de knok">${e.packs.filter((p) => !p.custom).map(opcion).join("")}</optgroup>` +
+    (propios.length ? `<optgroup label="Mis nichos">${propios.map(opcion).join("")}</optgroup>` : "");
+  $("#btn-editar-nicho").hidden = !e.pack.custom;
+  $("#ayuda-ciudades").textContent = e.pack.company_sources.osm && !e.pack.company_sources.wikidata && !e.pack.company_sources.directories
+    ? "Necesaria para buscar empresas de tu nicho: se buscan en OpenStreetMap alrededor de cada ciudad (y suman puntos las de allí)."
+    : "Además de las fuentes del nicho, busca empresas en OpenStreetMap alrededor de cada ciudad y da más puntos a las de allí.";
   st.busqueda = { ...busquedaPorDefecto(), ...(leerLocal(claveBusqueda()) || {}) };
   const f = $("#form-busqueda");
   f.keywords.value = st.busqueda.keywords;
@@ -498,7 +633,7 @@ function prepararBusqueda() {
   $$('[name="sources"]', f).forEach((c) => (c.checked = st.busqueda.sources.includes(c.value)));
   $('[data-falta="adzuna"]').textContent = e.sources_ready.adzuna ? "" : "(necesita claves gratis de Adzuna en .env)";
   $('[data-falta="infojobs"]').textContent = e.sources_ready.infojobs ? "" : "(necesita claves de InfoJobs en .env)";
-  $("#pack-descripcion").textContent = "";
+  $("#pack-descripcion").textContent = e.pack.description || "";
   pintarPaises();
 }
 
@@ -638,7 +773,11 @@ async function cargarTabla() {
     const r = await api("/panel/board");
     if (!st.selModo || st.selModo !== r.mode) { st.selModo = r.mode; cargarSeleccion(); }
     st.filas = r.items;
+    st.busquedaTabla = r.search;
     st.ultimaTabla = Date.now();
+    if (st.estado) pintarKpis(st.estado);
+    pintarDesglose();
+    pintarKanban();
     // Lo ya enviado o descartado sale de la selección
     const porClave = new Map(st.filas.map((x) => [x.key, x]));
     for (const k of [...st.sel]) { const x = porClave.get(k); if (!x || !seleccionable(x)) st.sel.delete(k); }
@@ -880,13 +1019,45 @@ $("#tabla-empresas").addEventListener("click", async (ev) => {
 
 // ------------------------------------------------------------ ficha: datos, correo editable, formulario y respuestas
 
+// --- ficha lateral (como la vista rápida de un CRM): se abre sin perder la tabla de vista
+
+function abrirCajon() {
+  $("#velo").hidden = false;
+  $("#cajon").classList.add("abierto");
+  $("#cajon").setAttribute("aria-hidden", "false");
+  setTimeout(() => $("#cajon-cerrar").focus(), 50);
+}
+function cerrarCajon() {
+  $("#velo").hidden = true;
+  $("#cajon").classList.remove("abierto");
+  $("#cajon").setAttribute("aria-hidden", "true");
+  st.fichaAbierta = null;
+}
+$("#cajon-cerrar").addEventListener("click", cerrarCajon);
+$("#velo").addEventListener("click", cerrarCajon);
+
+const MOVER = { prepared: "Preparada", sent: "Enviada", replied: "Respondida", interview: "Entrevista", discarded: "Descartada" };
+
+function lineaTiempo(x, item, respuestas) {
+  const pasos = [];
+  if (x.score != null) pasos.push(["Encontrada en tu búsqueda", "", "var(--tinta-3)"]);
+  if (item) pasos.push(["Candidatura preparada", "", "var(--acento)"]);
+  if (item && item.sent_at) pasos.push([x.route === "email" ? "Correo enviado" : "Enviada", fecha(item.sent_at), "var(--serie-1)"]);
+  for (const r of respuestas.slice().reverse()) pasos.push([`Respuesta: ${catInfo(r.category).txt.toLowerCase()}`, fecha(r.received_at), "var(--serie-2)"]);
+  if (item && item.status === "interview") pasos.push(["Entrevista", "", "var(--bien)"]);
+  if (item && item.status === "discarded") pasos.push(["Descartada", "", "var(--neutro)"]);
+  return pasos.length ? `<ul class="linea-tiempo">${pasos.map(([t, c, col]) => `<li style="--c:${col}">${esc(t)}${c ? `<span class="cuando">${esc(c)}</span>` : ""}</li>`).join("")}</ul>` : "";
+}
+
 async function abrirFicha(clave) {
   let x = st.filas.find((f) => f.key === clave);
   if (!x) { await cargarTabla(); x = st.filas.find((f) => f.key === clave); }
   if (!x) return;
-  $("#dialogo-titulo").textContent = x.name || x.title;
-  $("#dialogo-cuerpo").innerHTML = `<p class="secundario">Cargando…</p>`;
-  if (!$("#dialogo").open) $("#dialogo").showModal();
+  st.fichaAbierta = clave;
+  $("#cajon-titulo").textContent = x.name || x.title;
+  $("#cajon-sobre").textContent = [x.kind === "job" ? "Oferta" : x.company_kind === "agency" ? "Agencia" : "Empresa", nombrePais(x.country), x.city].filter((v) => v && v !== "—").join(" · ");
+  $("#cajon-cuerpo").innerHTML = `<p class="secundario" style="margin-top:16px">Cargando…</p>`;
+  abrirCajon();
 
   let item = null;
   try {
@@ -897,50 +1068,62 @@ async function abrirFicha(clave) {
       cargarTabla();
     }
   } catch (err) { aviso(err.message, "critico"); }
+  if (st.fichaAbierta !== clave) return;
 
   const avisos = (x.warnings || []).map((a) => {
     const i = AVISOS[a.type] || { txt: a.type, clase: "", ayuda: "" };
     return `<div class="caja-aviso ${i.clase}"><b>⚠ ${esc(i.txt)}.</b> ${esc(i.ayuda)}${a.text ? `<q>${esc(a.text)}</q>` : ""}${a.url ? `<div class="pequeno" style="margin-top:4px">Visto en ${enlace(a.url, "esta página")}</div>` : ""}</div>`;
   }).join("");
   const respuestas = item ? st.respuestas.filter((r) => r.application_id === item.id) : [];
-  const abierta = item && ABIERTOS.includes(item.status);
+  const estado = item ? item.status : x.status;
+  const abierta = ABIERTOS.includes(estado);
   const rastreo = x.kind !== "company" ? "" : x.blocked ? "Su web no deja leerla a programas: ábrela tú." : x.crawled ? "Rastreada" : x.website ? "Aún no se ha rastreado su web." : "No tiene web.";
+  const puedeSeguimiento = item && item.status === "sent" && x.route === "email";
 
-  $("#dialogo-cuerpo").innerHTML = `
+  $("#cajon-cuerpo").innerHTML = `
     ${avisos}
+    <div class="fila" style="margin-top:14px">
+      ${estadoHtml(estado)}${x.reply ? " " + cat(x.reply, true) : ""} ${viaHtml(x.route)}
+      ${x.follow_up_due ? `<span class="chip-aviso" title="Ha pasado el plazo sin respuesta">toca seguimiento</span>` : ""}
+    </div>
+    <div class="fila">
+      ${seleccionable({ ...x, status: estado }) ? `<button class="btn ${st.sel.has(x.key) ? "" : "primario"}" id="ficha-sel">${st.sel.has(x.key) ? "Quitar de la selección" : "☑ Seleccionar para enviar"}</button>` : ""}
+      ${abierta && x.route !== "manual" ? `<button class="btn" id="ficha-enviar">Enviar solo esta</button>` : ""}
+      ${x.apply_url && (x.route !== "email") ? `<a class="btn" href="${urlSegura(x.apply_url)}" target="_blank" rel="noopener">Abrir ${x.route === "manual" ? "enlace" : "formulario"}</a>` : ""}
+      ${item && ["prepared", "confirmed", "error"].includes(item.status) && x.route !== "email" ? `<button class="btn" id="ficha-marcar">Marcar como enviada</button>` : ""}
+      ${puedeSeguimiento ? `<button class="btn" id="ficha-seguir">Escribir seguimiento</button>` : ""}
+      ${item && ["sent", "replied", "interview"].includes(item.status) ? `<button class="btn" id="ficha-anotar">Anotar respuesta</button>` : ""}
+      ${item ? `<label class="mover">Mover a<select id="ficha-mover"><option value="">—</option>${Object.entries(MOVER).filter(([k]) => k !== item.status).map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select></label>`
+        : x.status === "new" ? `<button class="btn" id="ficha-descartar">Descartar</button>` : ""}
+    </div>
+    <div id="ficha-seguimiento"></div>
     <dl class="ficha">
-      <dt>Estado</dt><dd>${estadoHtml(item ? item.status : x.status)}${x.reply ? " · " + cat(x.reply) : ""}</dd>
       ${x.title ? `<dt>Puesto</dt><dd>${esc(x.title)}${x.job_url ? " · " + enlace(x.job_url, "ver oferta") : ""}</dd>` : ""}
-      <dt>Vía</dt><dd>${viaHtml(x.route)} <span class="secundario pequeno">${esc((item && item.route_reason) || (VIAS[x.route] || ["", ""])[1])}</span></dd>
-      <dt>País</dt><dd>${esc(nombrePais(x.country))}${x.city ? " · " + esc(x.city) : ""}</dd>
+      <dt>Vía</dt><dd class="secundario">${esc((item && item.route_reason) || (VIAS[x.route] || ["", ""])[1])}</dd>
+      ${x.email ? `<dt>Contacto</dt><dd>${esc(x.email)}</dd>` : ""}
       ${x.sector ? `<dt>Sector</dt><dd>${esc(x.sector)}</dd>` : ""}
       <dt>Web</dt><dd>${enlace(x.website)}</dd>
       <dt>Página de empleo</dt><dd>${enlace(x.careers_url)}</dd>
       <dt>Su web menciona</dt><dd>${(x.mentions || []).length ? x.mentions.map((t) => `<span class="chip-cadetes">${icono()} ${esc(t)}</span>`).join(" ") : x.crawled ? "nada de lo que buscas" : "—"}${(x.signals || []).length ? " " + x.signals.map((t) => `<span class="chip-senal">${esc(t)}</span>`).join(" ") : ""}</dd>
       ${rastreo ? `<dt>Rastreo</dt><dd>${esc(rastreo)}</dd>` : ""}
-      ${(x.reasons || []).length ? `<dt>Por qué sale</dt><dd class="secundario">${esc(x.reasons.join(" · "))}</dd>` : ""}
+      ${(x.reasons || []).length ? `<dt>Por qué sale</dt><dd class="secundario">${esc(x.reasons.join(" · "))}${x.score != null ? ` <span class="puntos">(${x.score} puntos)</span>` : ""}</dd>` : ""}
       ${x.source ? `<dt>De dónde sale</dt><dd class="secundario">${esc(x.source)}</dd>` : ""}
     </dl>
-    <div class="fila">
-      ${seleccionable({ ...x, status: item ? item.status : x.status }) ? `<button class="btn ${st.sel.has(x.key) ? "" : "primario"}" id="ficha-sel">${st.sel.has(x.key) ? "Quitar de la selección" : "☑ Seleccionar para enviar"}</button>` : ""}
-      ${abierta && x.route !== "manual" ? `<button class="btn" id="ficha-enviar">Enviar solo esta</button>` : ""}
-      ${(x.route !== "email" && item && ["prepared", "confirmed", "error"].includes(item.status)) || (!item && x.route === "manual") ? `${x.apply_url ? `<a class="btn" href="${urlSegura(x.apply_url)}" target="_blank" rel="noopener">Abrir ${x.route === "manual" ? "enlace" : "formulario"}</a>` : ""}` : ""}
-      ${item && ["prepared", "confirmed", "error"].includes(item.status) && x.route !== "email" ? `<button class="btn" id="ficha-marcar">Marcar como enviada</button>` : ""}
-      ${item && ["sent", "replied", "interview"].includes(item.status) ? `<button class="btn" id="ficha-anotar">Anotar respuesta</button>` : ""}
-      ${(item ? abierta : x.status === "new") ? `<button class="btn" id="ficha-descartar">Descartar</button>` : ""}
-    </div>
+    ${lineaTiempo(x, item, respuestas)}
     ${item ? bloqueCandidatura(item) : ""}
     ${respuestas.length ? `<h3 style="margin:18px 0 0">Respuestas</h3>` + respuestas.map((r) => `<div class="hilo-item"><div class="meta"><b>${esc(r.from)}</b> · ${esc(fecha(r.received_at))} · ${cat(r.category, true)}</div><div class="cuerpo-msg">${esc(r.body)}</div></div>`).join("") : ""}
+    ${item ? `<label style="margin-top:18px">Notas (solo para ti)<textarea id="ficha-notas" rows="3" placeholder="Con quién hablaste, qué te dijeron, próximos pasos…">${esc(item.notes || "")}</textarea></label>` : ""}
     <div id="ficha-anotar-form"></div>`;
 
-  const on = (sel, fn) => { const el = $(sel, $("#dialogo-cuerpo")); if (el) el.addEventListener("click", fn); };
+  const on = (sel, fn, evento = "click") => { const el = $(sel, $("#cajon-cuerpo")); if (el) el.addEventListener(evento, fn); };
+  const recargar = async () => { await cargarTabla(); refrescar(); if (st.fichaAbierta === clave) abrirFicha(clave); };
   on("#ficha-sel", () => { seleccionar([x.key], !st.sel.has(x.key)); abrirFicha(x.key); });
   on("#ficha-descartar", async () => {
-    try { await api("/panel/discard", { method: "POST", body: idsDe([x]) }); $("#dialogo").close(); seleccionar([x.key], false); cargarTabla(); refrescar(); }
+    try { await api("/panel/discard", { method: "POST", body: idsDe([x]) }); seleccionar([x.key], false); cerrarCajon(); cargarTabla(); refrescar(); aviso("Descartada.", "bien"); }
     catch (err) { aviso(err.message, "critico"); }
   });
   on("#ficha-marcar", async () => {
-    try { await api(`/applications/${item.id}/mark-sent`, { method: "POST", body: {} }); await cargarTabla(); abrirFicha(x.key); refrescar(); }
+    try { await api(`/applications/${item.id}/mark-sent`, { method: "POST", body: {} }); aviso("Marcada como enviada.", "bien"); recargar(); }
     catch (err) { aviso(err.message, "critico"); }
   });
   on("#ficha-enviar", async () => {
@@ -949,6 +1132,58 @@ async function abrirFicha(clave) {
   });
   on("#ficha-guardar", async () => { if (await guardarCorreo(item)) { aviso("Cambios guardados.", "bien"); abrirFicha(x.key); } });
   on("#ficha-anotar", () => formularioRespuesta(item.id, x.key));
+  on("#ficha-mover", async (ev) => { if (ev.target.value) await moverA(x, ev.target.value); }, "change");
+  on("#ficha-notas", async (ev) => {
+    try { await api(`/applications/${item.id}`, { method: "PATCH", body: { notes: ev.target.value } }); aviso("Nota guardada.", "bien"); }
+    catch (err) { aviso(err.message, "critico"); }
+  }, "change");
+  on("#ficha-seguir", async () => {
+    try {
+      const d = await api(`/applications/${item.id}/followup`);
+      $("#ficha-seguimiento").innerHTML = `
+        <form class="tarjeta" id="form-seguimiento" style="margin-top:12px">
+          <h3>Correo de seguimiento</h3>
+          <p class="secundario pequeno" style="margin-top:-6px">Responde a tu correo original, a ${esc(d.to)}. Revísalo antes de enviarlo.</p>
+          <label>Asunto<input name="subject" value="${esc(d.subject)}" required></label>
+          <label>Mensaje<textarea name="body" rows="8" required>${esc(d.body)}</textarea></label>
+          <div class="fila"><button class="btn primario">Enviar seguimiento</button></div>
+        </form>`;
+      $("#form-seguimiento").addEventListener("submit", async (ev2) => {
+        ev2.preventDefault();
+        const f = Object.fromEntries(new FormData(ev2.target));
+        try { await api(`/applications/${item.id}/followup`, { method: "POST", body: f }); aviso("Seguimiento en cola.", "bien"); recargar(); }
+        catch (err) { aviso(err.message, "critico"); }
+      });
+    } catch (err) { aviso(err.message, "critico"); }
+  });
+}
+
+// Cambiar de fase (desde la ficha o arrastrando en el tablero). Enviar de verdad siempre pide confirmación.
+async function moverA(x, destino) {
+  const actual = x.status;
+  try {
+    if (destino === actual) return;
+    if (destino === "sent") {
+      if (actual === "confirmed") return aviso("Ya está confirmada: sale sola (correo) o la terminas con la extensión.");
+      if (!ABIERTOS.includes(actual)) return aviso("Ya está enviada.");
+      if (x.route === "email") return enviar([x]);
+      await api(`/applications/${x.application_id}/mark-sent`, { method: "POST", body: {} });
+    } else if (destino === "discarded") {
+      if (ABIERTOS.includes(actual)) await api("/panel/discard", { method: "POST", body: idsDe([x]) });
+      else await api(`/applications/${x.application_id}/status`, { method: "POST", body: { status: "discarded" } });
+    } else if (destino === "prepared") {
+      if (actual === "new") await api("/panel/prepare", { method: "POST", body: { result_ids: [x.result_id] } });
+      else if (actual === "discarded") await api(`/applications/${x.application_id}/status`, { method: "POST", body: { status: "prepared" } });
+      else return aviso("Una candidatura ya enviada no vuelve a «Preparada».");
+    } else {
+      if (!["sent", "replied", "interview"].includes(actual)) return aviso("Primero tiene que estar enviada.");
+      await api(`/applications/${x.application_id}/status`, { method: "POST", body: { status: destino } });
+    }
+    aviso(`${x.name || x.title}: ${MOVER[destino] || destino}.`, "bien");
+  } catch (err) { aviso(err.message, "critico"); }
+  await cargarTabla();
+  refrescar();
+  if (st.fichaAbierta === x.key) abrirFicha(x.key);
 }
 
 function bloqueCandidatura(item) {
@@ -1008,6 +1243,13 @@ function formularioRespuesta(appId, clave) {
   });
 }
 $("#dialogo-cerrar").addEventListener("click", () => $("#dialogo").close());
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape" && $("#cajon").classList.contains("abierto") && !document.querySelector("dialog[open]")) cerrarCajon();
+  if (ev.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) {
+    const campo = st.vista === "seguimiento" ? $("#filtro-kanban") : st.vista === "empresas" ? $("#filtro-texto") : null;
+    if (campo) { ev.preventDefault(); campo.focus(); }
+  }
+});
 
 // ------------------------------------------------------------ respuestas
 
@@ -1282,11 +1524,11 @@ function mostrarPlantilla() {
   const t = plantillaActual();
   $("#tpl-asunto").value = t.subject;
   $("#tpl-cuerpo").value = t.body;
-  const para = { company: "empresas (sin oferta publicada)", agency: "agencias de empleo o tripulación", job: "ofertas publicadas" }[st.audiencia];
+  const para = { company: "empresas (sin oferta publicada)", agency: "agencias de empleo o selección", job: "ofertas publicadas" }[st.audiencia];
   $("#etq-mensaje").textContent = `Mensaje para ${para}${st.idioma !== "es" ? ` (en ${IDIOMAS_ES[st.idioma] || st.idioma})` : ""}`;
   $("#ayuda-plantilla").textContent = st.audiencia === "job"
     ? "Se usa cuando respondes a una oferta concreta: {puesto} es el título de la oferta."
-    : st.audiencia === "agency" ? "Se usa con las agencias (de selección, de tripulación…)." : "Se usa para escribir a una empresa aunque no tenga ofertas publicadas.";
+    : st.audiencia === "agency" ? "Se usa con las agencias de empleo, ETT y selección." : "Se usa para escribir a una empresa aunque no tenga ofertas publicadas.";
   $("#tpl-origen").textContent = t.source === "user" ? "Mensaje tuyo" : t.source === "pack" ? "Mensaje original del nicho" : "Aún no hay un mensaje específico: se usa el de empresas";
   st.ultimoCampo = $("#tpl-cuerpo");
   pintarPrevia();
@@ -1520,7 +1762,7 @@ $("#cajas-adjuntos").addEventListener("drop", (ev) => {
     pintarCabecera(st.estado);
   }
   const inicial = location.hash.slice(1);
-  mostrar(["panel", "empresas", "respuestas", "config"].includes(inicial) ? inicial : "panel");
+  mostrar(["panel", "empresas", "seguimiento", "respuestas", "config"].includes(inicial) ? inicial : "panel");
 })();
 
 $("#btn-exportar").addEventListener("click", async () => {
@@ -1530,4 +1772,168 @@ $("#btn-exportar").addEventListener("click", async () => {
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(await r.blob()), download: "knok-seguimiento.csv" });
     document.body.append(a); a.click(); a.remove();
   } catch (err) { aviso(err.message, "critico"); }
+});
+
+// ------------------------------------------------------------ tablero de seguimiento (arrastrar entre fases)
+
+const COLUMNAS = [
+  { id: "prepared", titulo: "Preparadas", color: "var(--acento)", ayuda: "Listas para enviar", estados: ["prepared", "error"] },
+  { id: "confirmed", titulo: "En camino", color: "var(--aviso)", ayuda: "En cola o pendientes del formulario", estados: ["confirmed"], soloLectura: true },
+  { id: "sent", titulo: "Enviadas", color: "var(--serie-1)", ayuda: "Esperando respuesta", estados: ["sent"] },
+  { id: "replied", titulo: "Respondidas", color: "var(--serie-2)", estados: ["replied"] },
+  { id: "interview", titulo: "Entrevista", color: "var(--bien)", estados: ["interview"] },
+  { id: "discarded", titulo: "Descartadas", color: "var(--neutro)", estados: ["discarded"] },
+];
+const MAX_TARJETAS = 60;
+
+function pintarKanban() {
+  const debidos = st.filas.filter((x) => x.follow_up_due).length;
+  $("#contador-seguimiento").hidden = !debidos;
+  $("#contador-seguimiento").textContent = debidos;
+  $("#contador-seguimiento").title = `${debidos} para hacer seguimiento`;
+  if (st.vista !== "seguimiento") return;
+  const texto = $("#filtro-kanban").value.trim().toLowerCase();
+  const filas = st.filas.filter((x) => x.application_id && (!texto || `${x.name} ${x.title} ${x.email}`.toLowerCase().includes(texto)));
+  const sinPreparar = st.filas.filter((x) => x.status === "new").length;
+  $("#kanban").innerHTML = COLUMNAS.map((c) => {
+    const tarjetas = filas.filter((x) => c.estados.includes(x.status));
+    return `<section class="columna" data-columna="${c.id}" style="--c:${c.color}" aria-label="${c.titulo}">
+      <div class="columna-cabecera"><b>${c.titulo}</b><span>${tarjetas.length}</span></div>
+      ${c.id === "prepared" && sinPreparar ? `<p class="ayuda-col">${sinPreparar} más sin preparar en <a href="#empresas">Empresas y ofertas</a></p>` : c.ayuda ? `<p class="ayuda-col">${c.ayuda}</p>` : ""}
+      ${tarjetas.slice(0, MAX_TARJETAS).map((x) => `
+        <article class="tarjeta-k" draggable="true" tabindex="0" data-tarjeta="${esc(x.key)}" title="Arrastra para cambiar de fase · Enter para abrir">
+          ${avatar(x.name || x.title, x.reply)}
+          <span class="t-nombre">${esc(x.name || x.title)}</span>
+          <span class="t-puesto">${esc(x.title || x.sector || x.email || "")}</span>
+          <span class="t-pie">${viaHtml(x.route)}${x.sent_at ? `<span>${esc(fecha(x.sent_at))}</span>` : ""}${x.reply ? cat(x.reply) : ""}${x.follow_up_due ? `<span class="chip-aviso">seguimiento</span>` : ""}${x.status === "error" ? `<span class="chip-aviso critico">error</span>` : ""}</span>
+        </article>`).join("")}
+      ${tarjetas.length > MAX_TARJETAS ? `<p class="mas">y ${tarjetas.length - MAX_TARJETAS} más (filtra para verlas)</p>` : ""}
+      ${!tarjetas.length ? `<p class="mas">—</p>` : ""}
+    </section>`;
+  }).join("");
+}
+$("#filtro-kanban").addEventListener("input", pintarKanban);
+$("#kanban").addEventListener("click", (ev) => {
+  const t = ev.target.closest("[data-tarjeta]");
+  if (t && !ev.target.closest("a")) abrirFicha(t.dataset.tarjeta);
+});
+$("#kanban").addEventListener("keydown", (ev) => {
+  const t = ev.target.closest("[data-tarjeta]");
+  if (t && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); abrirFicha(t.dataset.tarjeta); }
+});
+$("#kanban").addEventListener("dragstart", (ev) => {
+  const t = ev.target.closest("[data-tarjeta]");
+  if (!t) return;
+  ev.dataTransfer.setData("text/plain", t.dataset.tarjeta);
+  ev.dataTransfer.effectAllowed = "move";
+  t.classList.add("arrastrando");
+});
+$("#kanban").addEventListener("dragend", (ev) => {
+  const t = ev.target.closest("[data-tarjeta]");
+  if (t) t.classList.remove("arrastrando");
+  $$(".columna.encima").forEach((c) => c.classList.remove("encima"));
+});
+$("#kanban").addEventListener("dragover", (ev) => {
+  const c = ev.target.closest("[data-columna]");
+  if (!c || c.dataset.columna === "confirmed") return;
+  ev.preventDefault();
+  $$(".columna.encima").forEach((o) => o !== c && o.classList.remove("encima"));
+  c.classList.add("encima");
+});
+$("#kanban").addEventListener("drop", (ev) => {
+  const c = ev.target.closest("[data-columna]");
+  if (!c) return;
+  ev.preventDefault();
+  c.classList.remove("encima");
+  const x = st.filas.find((f) => f.key === ev.dataTransfer.getData("text/plain"));
+  if (x && !COLUMNAS.find((k) => k.id === c.dataset.columna).estados.includes(x.status)) moverA(x, c.dataset.columna);
+});
+
+// ------------------------------------------------------------ crear y editar nichos (cualquier sector)
+
+async function abrirNicho(slug = null) {
+  if (!st.sectores) st.sectores = await api("/niches/sectors").catch(() => []);
+  let n = null;
+  if (slug) n = (await api("/me/niches").catch(() => [])).find((x) => x.slug === slug);
+  st.nichoEditando = n ? n.slug : null;
+  const sp = n ? n.spec : { name: "", description: "", sectors: [], job_titles: [], mention_terms: [], mailboxes: [], exclude_terms: [],
+    default_countries: (st.estado && st.estado.profile.country) ? [st.estado.profile.country] : ["es"], directories: [], osm_extra: [] };
+  const grupos = {};
+  st.sectores.forEach((x) => (grupos[x.group] = grupos[x.group] || []).push(x));
+  $("#sectores").innerHTML = Object.entries(grupos).map(([g, xs]) => `<div class="grupo-sector"><p>${esc(g)}</p><div>${xs.map((x) =>
+    `<label class="chip-sector" title="${esc(Object.entries(x.osm).map(([k, v]) => k + "=" + v.join("|")).join(" · "))}"><input type="checkbox" name="sectors" value="${x.id}" ${sp.sectors.includes(x.id) ? "checked" : ""}><span>${esc(x.label.es)}</span></label>`).join("")}</div></div>`).join("");
+  const f = $("#form-nicho");
+  f.name.value = sp.name; f.description.value = sp.description || "";
+  f.job_titles.value = sp.job_titles.join("\n"); f.mention_terms.value = sp.mention_terms.join("\n");
+  f.mailboxes.value = sp.mailboxes.join(", "); f.exclude_terms.value = sp.exclude_terms.join(", ");
+  f.default_countries.value = sp.default_countries.join(", "); f.directories.value = sp.directories.join("\n");
+  f.osm_extra.value = sp.osm_extra.join("\n");
+  $("#nicho-titulo").textContent = n ? `Editar «${n.name}»` : "Nuevo nicho";
+  $("#nicho-guardar").textContent = n ? "Guardar cambios" : "Crear y usar";
+  $("#nicho-borrar").hidden = !n;
+  resumenNicho();
+  $("#dialogo-nicho").showModal();
+  if (!n) f.name.focus();
+}
+
+function leerNicho() {
+  const f = $("#form-nicho");
+  const lineas = (v) => v.split(/[\n,]/).map((x) => x.trim()).filter(Boolean);
+  return {
+    name: f.name.value.trim(), description: f.description.value.trim(),
+    sectors: $$('[name="sectors"]:checked', f).map((c) => c.value),
+    job_titles: f.job_titles.value.split("\n").map((x) => x.trim()).filter(Boolean),
+    mention_terms: f.mention_terms.value.split("\n").map((x) => x.trim()).filter(Boolean),
+    mailboxes: lineas(f.mailboxes.value), exclude_terms: lineas(f.exclude_terms.value),
+    default_countries: lineas(f.default_countries.value), directories: f.directories.value.split("\n").map((x) => x.trim()).filter(Boolean),
+    osm_extra: f.osm_extra.value.split("\n").map((x) => x.trim()).filter(Boolean),
+  };
+}
+
+function resumenNicho() {
+  const n = leerNicho();
+  const nombres = n.sectors.map((id) => (st.sectores.find((x) => x.id === id) || { label: { es: id } }).label.es.toLowerCase());
+  const partes = [];
+  if (nombres.length || n.osm_extra.length) partes.push(`buscará <b>${esc(listaCorta(nombres.concat(n.osm_extra)))}</b> alrededor de las ciudades que indiques`);
+  if (n.directories.length) partes.push(`leerá <b>${n.directories.length}</b> ${n.directories.length === 1 ? "directorio" : "directorios"}`);
+  if (n.job_titles.length) partes.push(`reconocerá ofertas de <b>${esc(listaCorta(n.job_titles))}</b>`);
+  if (n.mention_terms.length) partes.push(`dará puntos a las webs que digan <b>${esc(listaCorta(n.mention_terms))}</b>`);
+  $("#resumen-nicho").innerHTML = partes.length ? `Con este nicho knok ${partes.join(", ")}.` : "Elige al menos un tipo de empresa o escribe algún puesto.";
+}
+$("#form-nicho").addEventListener("input", resumenNicho);
+$("#form-nicho").addEventListener("change", resumenNicho);
+$("#nicho-cerrar").addEventListener("click", () => $("#dialogo-nicho").close());
+$("#form-nicho").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const datos = leerNicho();
+  if (!datos.name) return aviso("Ponle un nombre al nicho.", "critico");
+  if (!datos.sectors.length && !datos.job_titles.length && !datos.directories.length && !datos.osm_extra.length)
+    return aviso("Elige al menos un tipo de empresa o escribe algún puesto que buscas.", "critico");
+  try {
+    if (st.nichoEditando) await api(`/me/niches/${st.nichoEditando}`, { method: "PUT", body: datos });
+    else await api("/me/niches", { method: "POST", body: { ...datos, activate: true } });
+    $("#dialogo-nicho").close();
+    st.config = null;
+    aviso(st.nichoEditando ? "Nicho guardado." : `Nicho «${datos.name}» creado. Ya puedes buscar con él.`, "bien");
+    st.estado = null;
+    await refrescar();
+    mostrar("panel");
+  } catch (err) { aviso(err.message, "critico"); }
+});
+$("#nicho-borrar").addEventListener("click", async () => {
+  if (!st.nichoEditando || !confirm("¿Borrar este nicho? Las empresas encontradas se quedan; tu perfil vuelve al nicho general.")) return;
+  try {
+    await api(`/me/niches/${st.nichoEditando}`, { method: "DELETE" });
+    $("#dialogo-nicho").close();
+    aviso("Nicho borrado.", "bien");
+    st.estado = null;
+    await refrescar();
+  } catch (err) { aviso(err.message, "critico"); }
+});
+$("#btn-nuevo-nicho").addEventListener("click", () => abrirNicho());
+$("#btn-editar-nicho").addEventListener("click", () => abrirNicho(st.estado.pack.slug));
+$("#nicho-chip").addEventListener("click", () => {
+  mostrar("panel");
+  $("#sel-pack").scrollIntoView({ behavior: "smooth", block: "center" });
+  $("#sel-pack").focus();
 });

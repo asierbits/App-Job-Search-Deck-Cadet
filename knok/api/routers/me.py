@@ -135,6 +135,7 @@ def export(user: m.User = Depends(current_user), profile: m.Profile = Depends(cu
         "emails": rows(m.Email, m.Email.user_id == uid),
         "replies": rows(m.Reply, m.Reply.user_id == uid),
         "connections": rows(m.OAuthAccount, m.OAuthAccount.user_id == uid),
+        "niches": rows(m.Niche, m.Niche.user_id == uid),
     }
     import json
     return Response(json.dumps(data, ensure_ascii=False, indent=2, default=str), media_type="application/json",
@@ -153,7 +154,7 @@ def delete_account(data: DeleteIn, user: m.User = Depends(current_user), db: Ses
     # Orden explícito: SQLite en tests no aplica ON DELETE CASCADE sin PRAGMA
     for model in (m.Reply, m.SimulatedReply, m.Email, m.Application, m.Batch, m.SearchResult, m.Search,
                   m.Document, m.Answer, m.CustomAnswer, m.Template, m.OAuthAccount, m.OAuthState,
-                  m.ApiToken, m.Event, m.Task, m.Profile):
+                  m.ApiToken, m.Event, m.Task, m.Niche, m.Profile):
         if model is m.SimulatedReply:
             ids = select(m.Email.id).where(m.Email.user_id == user.id)
             db.execute(delete(model).where(model.email_id.in_(ids)))

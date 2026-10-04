@@ -226,6 +226,9 @@ def review_item(db: Session, app: Application) -> dict:
 
 
 def update(db: Session, app: Application, profile: Profile, patch: dict) -> Application:
+    if set(patch) <= {"notes"}:          # las notas se pueden escribir en cualquier momento
+        app.notes = patch.get("notes") or ""
+        return app
     if app.status not in OPEN:
         raise ApplicationError("not_open", f"No se puede editar una candidatura en estado '{app.status}'")
     if "contact_email" in patch:

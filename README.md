@@ -35,10 +35,22 @@ los correos** para que el usuario los revise y los envíe. Tiene una API REST pa
 
 | Pestaña | Qué haces |
 |---|---|
-| **Panel** | Rellena **¿Qué buscas?** (nicho, palabras clave, países, ciudades, dónde buscar, cuántas webs rastrear) y pulsa **Iniciar búsqueda**. Resumen, embudo, actividad de 14 días, últimas respuestas y registro. |
-| **Empresas y ofertas** | La búsqueda **en directo**: fase, webs que se están leyendo ahora y lo que se encontró en cada una (buzón genérico, página de empleo, menciones, avisos). Tabla con filtros, «Ver» (ficha, correo editable o campos del formulario), selección, «Seleccionar recomendadas», **Enviar** y Detener. |
+| **Panel** | Cifras clave con su variación semanal y minigráfico, **¿Qué buscas?** (nicho, palabras clave, países, ciudades, dónde buscar, cuántas webs rastrear) e **Iniciar búsqueda**. Búsquedas recientes para repetirlas con un clic, actividad de 14 días, qué te han contestado, de dónde son las empresas (países, sectores, vías: pulsa una fila y la tabla se filtra), últimas respuestas y registro. |
+| **Empresas y ofertas** | La búsqueda **en directo** (webs que se están leyendo y lo que se encontró en cada una), tabla con filtros, ficha lateral (correo editable o campos del formulario, avisos, por qué sale), selección, «Seleccionar recomendadas», **Enviar** y Detener. |
+| **Seguimiento** | Tablero por fases (preparadas, en camino, enviadas, respondidas, entrevista, descartadas). Arrastra una tarjeta para cambiarla de fase; enviar de verdad siempre pide confirmación. En la ficha: notas, «Mover a», línea de tiempo y correo de seguimiento. |
 | **Respuestas** | Bandeja con la clasificación automática (entrevista, piden info, rechazo, automática), corregible. |
 | **Configuración** | Gmail, modo (Simulación / Prueba real / Real), **tu mensaje** por idioma y destinatario con variables y vista previa, archivos adjuntos por idioma, perfil, límites y respuestas para formularios. |
+
+Tema claro u oscuro con el botón de la luna. Atajos: `/` para filtrar la tabla o el tablero, `Esc` cierra la ficha.
+
+### Cualquier nicho
+
+knok trae nichos hechos (general, marina mercante, doctorados) y puedes **crear el tuyo** con «+ Nuevo» junto al
+selector de nicho: eliges **tipos de empresa** de una lista de 34 sectores (hoteles, clínicas, consultoras,
+colegios, talleres…), los **puestos** que buscas, lo que conviene que **diga su web** («trabaja con nosotros»,
+«prácticas»…), tus **buzones preferidos** y, si quieres, países, directorios de empresas y etiquetas del mapa.
+Con eso knok busca esas empresas en OpenStreetMap **alrededor de las ciudades** que pongas, rastrea sus webs y
+reconoce las ofertas del nicho. Para los nichos propios hace falta al menos una ciudad.
 
 Empieza en **Simulación**: busca de verdad pero no envía nada. **Gmail**: en el panel local se conecta como
 en la primera versión, con una **contraseña de aplicación** (verificación en dos pasos → contraseña de

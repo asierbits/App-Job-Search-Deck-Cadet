@@ -8,21 +8,24 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=DM+Sans:opsz,wght@9..40,400..700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/ui/style.css">
+  <script>try { var t = localStorage.getItem("knok-tema"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 </head>
 <body>
 <header class="barra">
   <div class="marca">
     <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 6V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1"/><rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 12h18"/></svg></span>
     <h1>knok</h1>
-    <span class="nicho-chip" id="nicho-chip" title="Tu nicho (cámbialo en «Qué buscas»)"></span>
+    <button type="button" class="nicho-chip" id="nicho-chip" title="Cambiar de nicho o crear uno nuevo"></button>
   </div>
   <nav class="pestanas" role="tablist">
     <button class="pestana activa" data-vista="panel">Panel</button>
     <button class="pestana" data-vista="empresas">Empresas y ofertas <span id="contador-seleccionadas" class="contador" hidden></span></button>
+    <button class="pestana" data-vista="seguimiento">Seguimiento <span id="contador-seguimiento" class="contador neutro" hidden></span></button>
     <button class="pestana" data-vista="respuestas">Respuestas <span id="contador-no-leidas" class="contador" hidden></span></button>
     <button class="pestana" data-vista="config">Configuración</button>
   </nav>
   <div class="acciones">
+    <button type="button" class="btn-icono" id="btn-tema" title="Cambiar entre tema claro y oscuro" aria-label="Cambiar tema"><svg viewBox="0 0 24 24" class="ico"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
     <span id="insignia-modo" class="insignia">…</span>
     <button id="chip-cuenta" class="chip-cuenta" type="button"></button>
   </div>
@@ -51,6 +54,10 @@
       </div>
     </div>
 
+    <!-- Cifras clave: lo primero que se lee -->
+    <div class="kpis" id="kpis" aria-label="Cifras clave"></div>
+
+    <div class="rejilla-busqueda">
     <!-- Qué buscas: los parámetros de la búsqueda -->
     <form class="tarjeta tarjeta-busqueda" id="form-busqueda" autocomplete="off">
       <div class="fila-entre cabecera-busqueda">
@@ -60,11 +67,15 @@
       </div>
       <div class="busqueda-cols">
         <div>
-          <label>Nicho
-            <select name="pack" id="sel-pack"></select>
-            <span class="ayuda" id="pack-descripcion"></span></label>
+          <div class="etiqueta-cuerpo">Nicho
+            <div class="fila" style="margin-top:5px;flex-wrap:nowrap">
+              <select name="pack" id="sel-pack"></select>
+              <button type="button" class="btn" id="btn-nuevo-nicho" title="Crear un nicho para cualquier sector">+ Nuevo</button>
+              <button type="button" class="btn" id="btn-editar-nicho" hidden>Editar</button>
+            </div>
+            <span class="ayuda" id="pack-descripcion"></span></div>
           <label>Palabras clave (opcional, separadas por comas)
-            <input name="keywords" id="inp-keywords" placeholder="p. ej. deck cadet, alumno de puente, trainee">
+            <input name="keywords" id="inp-keywords" placeholder="p. ej. junior, prácticas, recepcionista">
             <span class="ayuda">Si las pones, cada oferta debe contener alguna. A las empresas sin oferta no se les aplica.</span></label>
           <div class="etiqueta-cuerpo">Países
             <div class="chips-paises" id="chips-paises"></div>
@@ -78,7 +89,7 @@
         <div>
           <label>Ciudades (opcional, una por línea)
             <textarea name="cities" rows="3" placeholder="Bilbao&#10;Hamburgo&#10;Róterdam"></textarea>
-            <span class="ayuda">Además de las fuentes del nicho, busca empresas en OpenStreetMap alrededor de cada ciudad y da más puntos a las de allí.</span></label>
+            <span class="ayuda" id="ayuda-ciudades">Busca empresas del nicho en OpenStreetMap alrededor de cada ciudad y da más puntos a las de allí.</span></label>
           <div class="dos-cols">
             <label>Radio (km)<input name="radius_km" type="number" min="1" max="100" value="10"></label>
             <label>Máx. webs a rastrear<input name="max_webs" type="number" min="0" max="2000" value="200"></label>
@@ -94,8 +105,12 @@
         </div>
       </div>
     </form>
-
-    <div class="embudo" id="embudo"></div>
+    <aside class="tarjeta recientes">
+      <h3>Búsquedas recientes</h3>
+      <ol id="lista-busquedas" class="lista-busquedas"></ol>
+      <div class="consejo" id="consejo"></div>
+    </aside>
+    </div>
 
     <div class="rejilla-graficos">
       <figure class="tarjeta">
@@ -115,7 +130,18 @@
       </figure>
     </div>
 
-    <div class="rejilla-2">
+    <div class="rejilla-3">
+      <div class="tarjeta desglose">
+        <div class="fila-entre"><h3>Dónde están</h3>
+          <div class="segmentado pequeno-seg" role="tablist" id="selector-desglose">
+            <button type="button" class="activo" data-desglose="pais">Países</button>
+            <button type="button" data-desglose="sector">Sectores</button>
+            <button type="button" data-desglose="via">Vías</button>
+          </div>
+        </div>
+        <p class="secundario pequeno" style="margin:-6px 0 10px">Resultados de tu última búsqueda. Pulsa una fila para ver solo esas.</p>
+        <ul id="lista-desglose" class="lista-desglose"></ul>
+      </div>
       <div class="tarjeta">
         <div class="fila-entre"><h3>Últimas respuestas</h3><button class="btn enlace" data-ir="respuestas">Ver todas →</button></div>
         <div class="revision"><span class="revision-texto"></span><button type="button" class="btn mini" data-revisar>↻ Revisar correo ahora</button></div>
@@ -213,6 +239,16 @@
         <button class="btn primario" id="btn-enviar" disabled>Enviar</button>
       </div>
     </div>
+  </section>
+
+  <!-- ============ SEGUIMIENTO (tablero) ============ -->
+  <section id="vista-seguimiento" class="vista" hidden>
+    <div class="cabecera-vista">
+      <div><h2 class="titulo-vista">Seguimiento</h2>
+        <p class="secundario pequeno" style="margin:2px 0 0">Tus candidaturas por fase. Arrastra una tarjeta para cambiarla de columna; pulsa en ella para ver el detalle.</p></div>
+      <input id="filtro-kanban" type="search" class="filtro-kanban" placeholder="Filtrar tarjetas…">
+    </div>
+    <div class="kanban" id="kanban"></div>
   </section>
 
   <!-- ============ RESPUESTAS ============ -->
@@ -407,6 +443,65 @@
   <div class="dialogo-cabecera"><h2 id="dialogo-titulo"></h2><button class="btn enlace" id="dialogo-cerrar" aria-label="Cerrar">✕</button></div>
   <div id="dialogo-cuerpo"></div>
 </dialog>
+
+<!-- Ficha lateral de una empresa u oferta -->
+<div class="velo" id="velo" hidden></div>
+<aside class="cajon" id="cajon" aria-hidden="true" aria-labelledby="cajon-titulo">
+  <div class="cajon-cabecera">
+    <div class="cajon-titulos"><p class="sobretitulo" id="cajon-sobre"></p><h2 id="cajon-titulo"></h2></div>
+    <button class="btn-icono" id="cajon-cerrar" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="cajon-cuerpo" id="cajon-cuerpo"></div>
+</aside>
+
+<!-- Crear o editar un nicho -->
+<dialog id="dialogo-nicho" class="dialogo-nicho">
+  <form id="form-nicho" method="dialog" autocomplete="off">
+    <div class="dialogo-cabecera"><h2 id="nicho-titulo">Nuevo nicho</h2><button type="button" class="btn enlace" id="nicho-cerrar" aria-label="Cerrar">✕</button></div>
+    <p class="secundario">Describe qué buscas y en qué tipo de empresas. knok lo usará para encontrar empresas en el mapa, leer sus webs y puntuar las ofertas. Puedes cambiarlo cuando quieras.</p>
+    <div class="dos-cols iguales">
+      <label>Nombre del nicho<input name="name" required maxlength="80" placeholder="p. ej. Hostelería en la costa"></label>
+      <label>Descripción (opcional)<input name="description" maxlength="300" placeholder="Para qué es"></label>
+    </div>
+    <div class="etiqueta-cuerpo">Tipos de empresa <span class="ayuda" style="display:inline">· se buscan en OpenStreetMap alrededor de tus ciudades</span>
+      <div id="sectores" class="sectores"></div>
+    </div>
+    <div class="dos-cols iguales">
+      <label>Puestos u ofertas que buscas
+        <textarea name="job_titles" rows="3" placeholder="recepcionista&#10;camarero&#10;jefe de sala"></textarea>
+        <span class="ayuda">Uno por línea, en los idiomas que quieras. Así se reconocen las ofertas del nicho.</span></label>
+      <label>Qué conviene que diga su web
+        <textarea name="mention_terms" rows="3" placeholder="trabaja con nosotros&#10;prácticas&#10;temporada"></textarea>
+        <span class="ayuda">Si la web de una empresa lo menciona, sube en la lista.</span></label>
+    </div>
+    <div class="dos-cols iguales">
+      <label>Buzones preferidos
+        <input name="mailboxes" placeholder="rrhh, empleo, jobs">
+        <span class="ayuda">La parte antes de la @, del mejor al peor. Solo buzones genéricos, nunca personales.</span></label>
+      <label>Descartar ofertas que digan
+        <input name="exclude_terms" placeholder="senior, director">
+        <span class="ayuda">Separadas por comas.</span></label>
+    </div>
+    <details class="avanzado">
+      <summary>Más opciones (países, directorios, etiquetas del mapa)</summary>
+      <label>Países por defecto (códigos de 2 letras)<input name="default_countries" placeholder="es, pt, fr"></label>
+      <label>Directorios de empresas (una dirección por línea: web o PDF)
+        <textarea name="directories" rows="3" class="mono" placeholder="https://www.asociacion.example/socios"></textarea>
+        <span class="ayuda">Listados de socios, guías de empresas… De cada uno se sacan webs y correos genéricos.</span></label>
+      <label>Etiquetas de OpenStreetMap extra (una por línea, clave=valor)
+        <textarea name="osm_extra" rows="2" class="mono" placeholder="craft=photographer"></textarea>
+        <span class="ayuda">Para tipos de empresa que no están en la lista. Consulta <a href="https://wiki.openstreetmap.org/wiki/Map_features" target="_blank" rel="noopener">las etiquetas del mapa</a>.</span></label>
+    </details>
+    <div class="resumen-nicho" id="resumen-nicho"></div>
+    <div class="fila-entre" style="margin-top:14px">
+      <button type="button" class="btn peligro" id="nicho-borrar" hidden>Borrar nicho</button>
+      <span></span>
+      <button type="submit" class="btn primario" id="nicho-guardar">Crear y usar</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
 
 <div id="tooltip" class="tooltip" hidden></div>
 
