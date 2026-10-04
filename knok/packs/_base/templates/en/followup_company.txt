@@ -1,0 +1,10 @@
+Subject: Re: {asunto}
+
+Dear {empresa} team,
+
+I am following up on the application I sent a few days ago. I remain very interested in {empresa} and would be happy to provide any additional information you may need.
+
+Thank you very much.
+
+Kind regards,
+{nombre}

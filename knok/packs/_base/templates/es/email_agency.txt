@@ -1,0 +1,12 @@
+Subject: Candidatura - {nombre}
+
+Estimado equipo de {empresa}:
+
+Mi nombre es {nombre} y me gustaría que tuvieran en cuenta mi perfil para los procesos de selección que gestionan. Les adjunto mi currículum.
+
+Muchas gracias.
+
+Un saludo,
+{nombre}
+{telefono}
+{linkedin}

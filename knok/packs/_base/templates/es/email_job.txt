@@ -1,0 +1,14 @@
+Subject: Candidatura: {puesto} - {nombre}
+
+Estimado equipo de {empresa}:
+
+Les escribo para presentar mi candidatura al puesto de {puesto}. Les adjunto mi currículum con mi formación y experiencia.
+
+Quedo a su disposición para ampliar cualquier información o para una entrevista.
+
+Muchas gracias por su atención.
+
+Un saludo,
+{nombre}
+{telefono}
+{linkedin}

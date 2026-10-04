@@ -1,0 +1,68 @@
+# Doctorados e investigación: plazas de doctorado, contratos predoctorales y puestos de investigación.
+slug: doctorados_investigacion
+version: 1
+names: {es: Doctorados e investigación, en: PhD and research positions}
+description:
+  es: Plazas de doctorado, contratos predoctorales y puestos de investigación en universidades y centros de I+D.
+  en: PhD positions, predoctoral contracts and research jobs at universities and research centres.
+languages: [es, en]
+
+profile_fields:
+  - {key: titulacion, label: {es: Titulación (máster), en: Degree (master's)}, localized: true}
+  - {key: universidad, label: {es: Universidad, en: University}}
+  - {key: area, label: {es: Área de investigación, en: Research area}, localized: true}
+  - {key: orcid, label: {es: ORCID, en: ORCID}}
+
+sources:
+  default_countries: [es, de, nl, fr, gb, ch, se, dk, be, at, it, pt, ie]
+  wikidata:
+    countries: [es, de, nl, fr, gb, ch, se, dk, be, at, it, pt, ie, fi, "no"]
+    queries:
+      - {label: Universidad, where: "?item wdt:P31/wdt:P279* wd:Q3918 ."}
+      - {label: Centro de investigación, where: "?item wdt:P31 wd:Q31855 ."}
+  osm:
+    tags:
+      amenity: [university, research_institute]
+      office: [research]
+    sector_labels: {university: Universidad, research_institute: Centro de investigación, research: Investigación / I+D}
+  ats:
+    seed_boards: []
+  adzuna:
+    what: ["phd", "doctoral researcher", "research assistant"]
+    countries: [gb, de, nl, fr]
+  infojobs:
+    q: ["doctorado", "investigador predoctoral", "contrato predoctoral"]
+
+crawl:
+  page_keywords: [phd, doctoral, doctorate, doctorado, predoc, promotion, vacancies, positions, open-positions,
+                  join-us, joinus, jobs, research-positions, convocatorias, ofertas-de-empleo, stellenangebote]
+  mailbox_priority: [phd, doctoral, doctorado, graduate, gradschool, admissions, recruitment, jobs, careers,
+                     hr, rrhh, personal, research, investigacion, info]
+  extra_generic: [phd, doctoral, doctorado, graduate, gradschool, admissions, research, investigacion,
+                  secretaria, secretariat, office, lab, group]
+  commercial: [press, prensa, communication, comunicacion, events, eventos, alumni, library, biblioteca]
+  mentions:
+    - {label: "PhD position", variants: ["phd position", "phd positions", "phd student", "doctoral candidate", "doctoral researcher"]}
+    - {label: "doctorado / predoctoral", variants: ["contrato predoctoral", "plaza de doctorado", "doctorado industrial", "fpu", "fpi"]}
+    - {label: "Marie Skłodowska-Curie", variants: ["marie curie", "marie sklodowska-curie", "msca", "doctoral network"]}
+    - {label: "Promotion (DE)", variants: ["promotionsstelle", "doktorand", "doktorandin"]}
+  career_signals:
+    - label: plazas abiertas
+      terms: ["open positions?", vacancies, "convocatorias? abiertas?", "plazas? abiertas?", "we are hiring",
+              "stellenangebote", "offres de these"]
+  exclude_domains: []
+
+match:
+  title_keywords:
+    es: [doctorado, predoctoral, doctorando, investigador, investigadora, contrato fpi, fpu]
+    en: [phd, doctoral, doctorate, research assistant, research associate, predoctoral, postdoc]
+  keywords:
+    es: [tesis, investigacion, laboratorio, grupo de investigacion, universidad]
+    en: [thesis, research, laboratory, research group, university, publications]
+  negative: [phd required for senior engineering]
+
+reply_keywords:
+  interview: [entrevista online, interview with the group, meet the supervisor, research presentation]
+  info: [research proposal, propuesta de investigacion, transcripts, expediente academico, reference letters, cartas de recomendacion]
+
+sample_data: sample.json

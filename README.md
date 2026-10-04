@@ -1,118 +1,185 @@
-# Busca Prácticas
+# knok · motor
 
-Panel local para encontrar **embarque como alumno de puente**. Busca navieras de toda Europa, rastrea sus webs para encontrar el mejor contacto (tripulación, cadetes, empleo), les envía tu solicitud por correo y reúne sus respuestas en un solo sitio.
+El motor de knok **busca ofertas y empresas, decide cómo aplicar a cada una, rellena las solicitudes y prepara
+los correos** para que el usuario los revise y los envíe. Es solo lógica + API REST: tu web (Next.js) se
+conecta a esta API. Incluye una extensión de Chrome (modo copiloto) que habla con la misma API.
 
-## Instalar en tu ordenador
+- Plan y decisiones: [docs/PLAN.md](docs/PLAN.md)
+- Conectar tu web: [docs/INTEGRACION_WEB.md](docs/INTEGRACION_WEB.md)
+- Extensión de Chrome: [extension/README.md](extension/README.md)
+- El programa anterior (panel local de un usuario) sigue en [legacy/](legacy/) y en la etiqueta `v1-panel-local`.
 
-1. **Instala Python** (gratis) desde <https://www.python.org/downloads/>. En Windows, marca la casilla **«Add python.exe to PATH»** al instalarlo. No hace falta instalar nada más.
-2. **Descomprime** el ZIP de Busca Prácticas donde quieras, por ejemplo en el Escritorio.
-3. **Abre** `iniciar.bat` con doble clic (en Windows). En Mac o Linux, abre una terminal en la carpeta y ejecuta `python3 app.py`.
-4. Se abre el panel en el navegador. Deja abierta la ventana negra mientras lo uses; para cerrarlo, ciérrala.
-5. Empieza en modo **Simulación** para ver cómo funciona, rellena **Configuración → Tu perfil** y conecta **tu propio Gmail** cuando quieras hacer pruebas reales (más abajo se explica cómo).
+## Principios (y dónde se cumplen)
 
-Cada persona tiene su propia configuración, su cuenta y sus datos: nada de eso va dentro del ZIP.
+| Principio | Cómo |
+|---|---|
+| Sin IA | Reglas fijas: palabras clave por idioma, patrones y puntuaciones explicables. El punto de extensión "sugerir respuesta" existe pero está desactivado (`/replies/{id}/suggestion` → 501). |
+| Coste casi cero | Postgres como base de datos **y** como cola (sin Redis); APIs gratuitas; cachés compartidas entre usuarios; el relleno de formularios ocurre en el navegador del usuario. |
+| No scrapear Google desde el servidor | El servidor solo lee APIs públicas, Wikidata, OpenStreetMap, directorios y las webs de las empresas (respetando `robots.txt`, sin fingir ser un navegador). |
+| Nada sale sin un clic | Las candidaturas se **preparan**; solo `POST /batches/{id}/send` o `POST /applications/{id}/send` con la lista que elige el usuario las envía. La extensión nunca pulsa "Enviar". |
+| Base común solo con buzones genéricos | Lista blanca de roles (info@, rrhh@, jobs@… + los del pack). Un buzón personal (nombre.apellido@) se descarta antes de guardarse y no se puede usar ni a mano. |
+| Global | Plantillas y textos por idioma (es, en), idioma elegido por país; diccionario de preguntas en es/en/fr/de/it/pt. |
+| Multi-nicho | El núcleo no sabe de ningún nicho (un test lo comprueba). Lo específico está en `knok/packs/<nicho>/`. |
 
-## Actualizar a la última versión
+## Arrancar en local
 
-El programa **no se actualiza solo**.
+### La forma fácil (sin Docker)
 
-- **Si lo descargaste con git** (`git clone`): haz doble clic en `actualizar.bat`, o ejecuta `git pull` en la carpeta.
-- **Si lo descargaste como ZIP**: descarga el ZIP nuevo y descomprímelo **encima** de tu carpeta, aceptando reemplazar los ficheros.
+1. Ten instalado **Python 3.11 o más reciente** (al instalarlo en Windows, marca «Add python.exe to PATH»).
+2. Doble clic en **`iniciar-sin-docker.bat`** (Windows) o ejecuta `./iniciar-sin-docker.sh` (Mac/Linux).
+   La primera vez prepara todo (unos minutos).
+3. Se abre <http://localhost:8000/playground>. Arranca en **modo de prueba sin red** (datos de ejemplo, no sale
+   ningún correo). Para pararlo, cierra la ventana.
 
-En los dos casos se conservan tu configuración, tu cuenta de Gmail y tus datos (`config.json`, `secretos.json` y la carpeta `datos/`). Después cierra el panel si estaba abierto y vuelve a abrir `iniciar.bat`. Las bases de datos antiguas se actualizan solas al arrancar.
+Usa una base de datos en un archivo (`knok.db`, SQLite) y el worker va dentro de la API: un solo proceso,
+ideal para tu ordenador. Para un servidor con varios usuarios, usa Docker con Postgres.
 
-## Arrancar
+### Con Docker
+
+Instala y abre **Docker Desktop** (necesita la virtualización activada en la BIOS) y haz doble clic en
+**`iniciar.bat`** (o `./iniciar.sh`). Para pararlo: `detener.bat` o `docker compose down`.
+
+### Opción A · Docker (todo incluido)
+
+```bash
+cp .env.example .env          # y ajusta lo que quieras
+docker compose up --build     # Postgres + API (aplica migraciones) + worker
+```
+
+API en <http://localhost:8000> · documentación interactiva en <http://localhost:8000/docs> ·
+banco de pruebas mínimo en <http://localhost:8000/playground>.
+
+### Opción B · Python directamente
+
+Requisitos: Python 3.11+ y un Postgres 16.
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"                  # incluye el conector de Postgres
+cp .env.example .env                     # pon tu KNOK_DATABASE_URL
+alembic upgrade head                     # crea las tablas
+uvicorn knok.api.main:app --reload       # API
+python -m knok.worker                    # en otra terminal: worker (búsquedas, rastreos, envíos)
+```
+
+**Para probar sin red ni claves**: `KNOK_OFFLINE_SOURCES=true`. Las búsquedas usan los datos de ejemplo de
+cada pack (empresas ficticias con dominios `@example.*`, que nunca reciben correo) y el modo Simulación
+no envía nada.
+
+## Variables de entorno
+
+Todas en [.env.example](.env.example) con explicación. Las importantes:
+
+| Variable | Para qué |
+|---|---|
+| `KNOK_DATABASE_URL` | Postgres (`postgresql+psycopg://usuario:clave@host:5432/knok`) |
+| `KNOK_SECRET_KEY` | Cifra los tokens OAuth guardados. **Obligatorio cambiarla en producción** |
+| `KNOK_CORS_ORIGINS` | Dominios de tu web que pueden llamar a la API |
+| `KNOK_PUBLIC_BASE_URL`, `KNOK_WEB_BASE_URL` | URL pública de la API (callbacks OAuth) y de tu web (vuelta tras conectar) |
+| `KNOK_GOOGLE_CLIENT_ID` / `_SECRET` | Gmail OAuth (solo envío). Redirección: `{API}/connections/google/callback` |
+| `KNOK_ADZUNA_APP_ID` / `_KEY` | Adzuna (plan gratis, ~1.000 llamadas/mes para todo knok) |
+| `KNOK_INFOJOBS_CLIENT_ID` / `_SECRET` | InfoJobs (búsqueda y candidatura por API) |
+| `KNOK_INBOUND_SECRET`, `KNOK_INBOUND_DOMAIN` | Reenvío de respuestas a knok (opcional) |
+| `KNOK_OFFLINE_SOURCES` | `true` = datos de ejemplo, sin red |
+
+### Gmail (OAuth, solo envío)
+
+1. En Google Cloud Console crea un proyecto, activa la **Gmail API** y una **pantalla de consentimiento OAuth**
+   con el scope `https://www.googleapis.com/auth/gmail.send` (más `openid` y `email`).
+2. Crea un **ID de cliente OAuth de tipo "Aplicación web"** con la redirección `{KNOK_PUBLIC_BASE_URL}/connections/google/callback`.
+3. Mientras la app esté en modo *Testing* solo pueden usarla los usuarios de prueba que añadas (máx. 100) y
+   el permiso caduca a los 7 días. Para abrirla a todos, Google pide verificación (gratuita para `gmail.send`):
+   política de privacidad, página de inicio en dominio verificado y vídeo de demostración.
+4. knok **no** pide permisos de lectura de Gmail (exigirían una auditoría anual de pago).
+
+## Cómo funciona (resumen de la API)
 
 ```
-python app.py
+POST /auth/register | /auth/login            → token (Bearer)
+PATCH /me/profile · POST /me/documents · PUT /me/answers/{clave} · PUT /me/templates/…
+GET  /connections/google/start               → URL de Google (conectar Gmail)
+POST /searches                               → búsqueda en cola (ingesta compartida + puntuación + vía)
+GET  /searches/{id}/results                  → ofertas y empresas con su vía y motivos
+POST /batches {search_id}                    → tanda de ~40 candidaturas preparadas y rellenas
+GET  /batches/{id}                           → revisión: lo rellenado, lo deducido, lo que falta, bloqueos
+PATCH /applications/{id}                     → correcciones (lo nuevo se recuerda en tu banco)
+POST /batches/{id}/send {application_ids}    → EL CLIC: se envían solo las seleccionadas
+GET  /tracking · /tracking/summary · /tracking/export.csv · POST /applications/{id}/replies
 ```
 
-o doble clic en `iniciar.bat`. Se abre el panel en <http://127.0.0.1:8765>, que solo es accesible desde tu PC. Si ya estaba abierto, no se arranca un segundo panel: se abre el que ya existe. Así nunca se envía el mismo correo dos veces.
+La referencia completa, con ejemplos y esquemas, está en `/docs` (OpenAPI en `/openapi.json`).
 
-## Cómo se usa: dos pasos
+### Vías (enrutador)
 
-1. **«1 · Buscar navieras»** (en el Panel): reúne las navieras y rastrea sus webs. **No envía nada.** Se abre la pestaña **Navieras**, donde ves en directo qué webs se están rastreando, las últimas rastreadas con lo que se encontró en cada una (email, ⚓ cadetes, portal de empleo, web que bloquea) y el estado de cada naviera en la tabla. Puedes pararlo con **Detener** y seguir otro día con **«Seguir rastreando»**.
-2. **Revisar y enviar** (pestaña **Navieras**): marca con la casilla a quién quieres escribir, o pulsa **«Seleccionar recomendadas»** (las que tienen un buzón de tripulación o de empleo, o cuya web habla de cadetes). Con **«Ver»** abres la ficha de cada naviera: su web, su página de empleo, de dónde salió el email y **el correo exacto que recibiría**. Después pulsa **«Enviar»**: solo se escribe a las seleccionadas, respetando el límite por envío y el diario. Las que no quepan hoy quedan seleccionadas para la próxima vez.
-
-## Los tres modos
-
-Se eligen en **Configuración**. Cada modo guarda sus datos en su propio fichero (`datos/simulacion.db`, `datos/prueba.db`, `datos/real.db`), así que las pruebas nunca se mezclan con los envíos reales.
-
-| Modo | ¿Sale algún correo? | Para qué sirve |
+| Vía | Cuándo | Qué pasa al pulsar enviar |
 |---|---|---|
-| **Simulación** | No | Probar el panel. Los correos se guardan como `.eml` en `datos/bandeja_salida_simulacion/` y las respuestas se generan solas al cabo de unos segundos. |
-| **Prueba real** | Sí, pero **solo a tu propio email** | Comprobar que Gmail funciona. Cada correo te llega a ti con el asunto `[PRUEBA → empresa@...]`. Contéstalo como si fueras la empresa y la respuesta aparecerá en el panel. |
-| **Real** | Sí, a las empresas | Buscar prácticas de verdad. Tiene límite diario y una pausa entre correos. |
+| `ats_extension` | La solicitud es el formulario de la empresa (Greenhouse, Lever, Ashby…) | Queda lista; la extensión rellena el formulario y **tú** pulsas Enviar |
+| `portal_api` | Oferta de InfoJobs y tienes InfoJobs conectado | Se envía por la API oficial (en Simulación, simulado) |
+| `portal_copilot` | Solo se puede aplicar dentro del portal (LinkedIn Easy Apply) | Copiloto de una en una en la extensión (con aviso de riesgo) |
+| `email` | Sin formulario: buzón genérico de la empresa | Correo por Gmail, con límites y pausas |
+| `manual` | Indeed Apply, plataformas sin adaptador, sin contacto | Se abre el enlace; lo marcas como enviada |
 
-Orden recomendado: **Simulación → Prueba real → Real**.
+### Modos
 
-## Fuentes de búsqueda
+| Modo | ¿Sale algo? | Para qué |
+|---|---|---|
+| `simulation` | No. Los correos se guardan como `.eml` y llegan respuestas simuladas | Probar |
+| `test` | Sí, **solo a tu propio email**, con el asunto `[PRUEBA → empresa@…]` | Comprobar Gmail |
+| `live` | Sí, a las empresas, con límite diario y pausa entre correos | Uso real |
 
-- **Navieras europeas** (la opción por defecto). Junta:
-  - **Wikidata**: unas 300 navieras, navieras de ferris y de cruceros de países europeos, con su web.
-  - **Directorios de asociaciones de navieros**: ANAVE (España, un PDF con webs y emails), VDR (Alemania), Rederi (Noruega), Armateurs de France e Interferry (ferris; se quedan solo las europeas). Se siguen las páginas de las listas paginadas. Puedes añadir más directorios en **Configuración → Búsqueda**, una dirección por línea (web o PDF), y opcionalmente `| es` para indicar el país.
+Límites: el diario del usuario (30 por defecto, como mucho el tope de Gmail: 500/día en cuentas personales) y,
+además, por cuenta de Google. Si se alcanza, el correo se aplaza a mañana, no se pierde.
 
-  Se descartan automáticamente las que no son navieras: asociaciones, sindicatos, sociedades de clasificación, astilleros, proveedores y consultoras. En total salen unas 600 navieras.
-- **OpenStreetMap**: oficinas alrededor de una lista de ciudades de cualquier país.
-- **Datos de ejemplo**: navieras ficticias con correos `@example.com`/`.org`/`.net`, para probar. Son dominios reservados y ningún correo llega nunca a ellos.
+### Detectar respuestas (sin leer Gmail)
 
-## Rastreo a fondo de cada web
+- **Marcado manual**: `POST /applications/{id}/replies` (con el texto pegado se clasifica: entrevista, piden
+  info, rechazo, automática u otra).
+- **Reenvío a knok**: `GET /me/reply-forwarding` da una dirección `u-<token>@{KNOK_INBOUND_DOMAIN}` y
+  `GET /me/reply-forwarding/filters.xml` un filtro de Gmail para importar que reenvía los correos de las
+  empresas contactadas. Un receptor de correo (por ejemplo Cloudflare Email Routing + un Worker, gratis)
+  envía el correo en bruto a `POST /inbound/email` con la cabecera `X-Knok-Inbound-Secret`.
 
-Con «Rastrear a fondo la web de cada empresa» activado, el programa visita hasta 8 páginas de cada naviera, priorizando las de tripulación, cadetes, empleo, contacto y aviso legal. De ahí saca:
+## Packs de nicho
 
-- **El mejor email** para una candidatura, por este orden de preferencia: `cadets@`, `crewing@`, `crew@`, `flota@`, `jobs@`, `rrhh@`, y si no hay ninguno, `info@`. Los buzones comerciales (ventas, fletes, reservas) quedan en último lugar, y nunca se usan los de otra empresa (por ejemplo, el de la agencia que hizo la web). También entiende emails ofuscados («info [at] empresa [dot] de») y protegidos por Cloudflare.
-- **Su página de empleo o de tripulación**, por si solo aceptan candidaturas mediante formulario. Filtra la tabla por «Sin email, con portal de empleo» para ver dónde registrarte a mano.
-- **Si su web menciona cadetes o alumnos** (⚓). A esas se les escribe primero.
+`knok/packs/<slug>/pack.yaml` + `questions.yaml` + `templates/<idioma>/<tipo>_<audiencia>.txt` + `sample.json`.
+Incluidos: `general`, `marina_mercante` (migrado del programa anterior) y `doctorados_investigacion`.
+Para crear uno, copia uno existente; el esquema está documentado en `knok/packs/schema.py` y los tests
+validan que cargue.
 
-Se rastrean 6 webs a la vez (cada una es de un servidor distinto), con un máximo de 45 segundos por web. Unas 600 webs tardan entre 15 y 20 minutos.
+## Tests
 
-**Límites que se respetan:** el `robots.txt` de cada web, y las webs que bloquean la lectura automática. A estas no se las engaña haciéndose pasar por un navegador: se marcan como «web bloquea» para que las mires tú. No se entra en LinkedIn ni en webs que exigen cuenta.
-
-A las navieras de España se les escribe en español; a las demás (y a las de país desconocido), en inglés.
-
-## Conectar Gmail (para los modos prueba y real)
-
-Al abrir el panel aparece la ventana **Conecta tu Gmail**. También puedes abrirla desde el botón de arriba a la derecha o desde **Configuración → Cuenta de correo**.
-
-1. Activa la verificación en dos pasos en tu cuenta de Google.
-2. Crea una contraseña de aplicación en <https://myaccount.google.com/apppasswords>.
-3. Escribe tu Gmail y pega las 16 letras. El panel comprueba que puede enviar (SMTP) y leer (IMAP) antes de guardarla.
-
-La contraseña se guarda solo en `secretos.json`, que está en `.gitignore` y nunca se sube a GitHub. Puedes revocarla cuando quieras desde tu cuenta de Google.
-
-Pon tu CV en `datos/cv.pdf` (o cambia la ruta en **Tu perfil**). El programa solo **lee** la bandeja de entrada y no marca nada como leído.
-
-## Editar el mensaje
-
-En **Configuración → Tu mensaje** hay cuatro versiones: español e inglés, cada una para navieras y para agencias. Los textos por defecto son una solicitud de embarque como alumno de puente (en inglés, *Deck Cadet*); «Restaurar el mensaje original» los recupera si los has cambiado. Los botones «Insertar» añaden variables como `{empresa}` o `{nombre}`, y a la derecha ves en directo cómo quedará el correo. Si un dato de tu perfil está vacío, la vista previa lo marca en amarillo.
-
-## Cómo se detectan las respuestas
-
-Un correo entrante cuenta como respuesta si:
-
-1. contesta directamente a uno de tus envíos (cabeceras `In-Reply-To`/`References`), o
-2. viene de la dirección de una empresa contactada, o de su mismo dominio (sin contar Gmail, Hotmail y similares).
-
-Después se clasifica por palabras clave como **Entrevista**, **Piden info**, **Rechazo**, **Automática** u **Otra**. Si la clasificación falla, puedes corregirla desde la respuesta.
-
-## Ficheros
-
-```
-app.py                 servidor web y API
-core/busqueda.py       búsqueda (reparte entre las fuentes; OpenStreetMap y ejemplo)
-core/maritimo.py       navieras europeas: Wikidata y directorios de asociaciones (web y PDF)
-core/webemail.py       rastreo a fondo de la web de cada empresa
-core/correo.py         composición, envío SMTP, lectura IMAP y clasificación
-core/simulador.py      respuestas simuladas
-core/motor.py          proceso en segundo plano (buscar → enviar → revisar respuestas)
-static/                panel (HTML, CSS y JS)
-datos/                 bases de datos, CV y datos de ejemplo
-config.json            tu configuración (se crea al arrancar; no se sube a GitHub)
-secretos.json          contraseña del correo (no se sube a GitHub)
+```bash
+pytest                                                                             # SQLite en memoria, sin red
+KNOK_TEST_DATABASE_URL=postgresql+psycopg://postgres@localhost:5432/knok_test pytest   # contra Postgres
+cd extension && npm install && npm test                                           # extensión (Node + Chromium)
 ```
 
-## Buenas prácticas
+Cubren fuentes (con respuestas de ejemplo de cada API), limpieza, enrutador, relleno, rastreo de webs, envío
+en los tres modos, revisión, extensión y seguimiento. CI en `.github/workflows/ci.yml`.
 
-- Envía pocos correos al día (el límite por defecto es 20) y personaliza las plantillas.
-- Escribe solo a direcciones que las empresas publiquen para contacto o empleo (RRHH, empleo, info).
-- Si una empresa te pide que no la contactes más, márcala como **Descartada**.
+## Estructura
+
+```
+knok/
+  api/            FastAPI: routers, dependencias, banco de pruebas (/playground)
+  core/           lógica pura: fuentes, rastreo, limpieza, enrutador, relleno, correo, i18n
+  services/       orquestación con la base de datos (búsqueda, candidaturas, envío, seguimiento…)
+  packs/          packs de nicho (YAML + plantillas + datos de ejemplo)
+  db/             modelos y migraciones (Alembic)
+  worker/         cola de tareas sobre Postgres y worker
+extension/        extensión de Chrome (Manifest V3)
+tests/            tests de Python con datos de ejemplo
+legacy/           programa anterior
+```
+
+## Pendiente o por validar
+
+- **Validar las APIs en vivo**: Greenhouse, Lever, Ashby, Adzuna e InfoJobs están implementadas según su
+  formato documentado y probadas con respuestas de ejemplo; el entorno donde se construyó no tenía acceso a
+  esas webs. Conviene una primera prueba real con claves.
+- **InfoJobs**: la candidatura por API requiere que InfoJobs conceda a tu app los permisos de candidato; las
+  versiones de los endpoints están en `knok/core/sources/infojobs.py`.
+- **Workday** y las plataformas de fase 3 (Computrabajo, Seek, Naukri, HelloWork, OCC, StepStone) aún no
+  tienen adaptador; las de fase 2 funcionan en beta con la extracción genérica.
+- **Login de tu web**: knok tiene sus propias cuentas. Si tu web adopta un proveedor (Supabase, Clerk,
+  Auth.js…), se puede verificar su token en `knok/api/deps.py` sin cambiar el resto.

@@ -1,0 +1,40 @@
+{
+ "apiVersion": "1",
+ "jobs": [
+  {
+   "id": "9a8b7c6d-1111-2222-3333-444455556666",
+   "title": "Product Designer",
+   "department": "Design",
+   "team": "Design",
+   "employmentType": "FullTime",
+   "location": "Lisbon",
+   "secondaryLocations": [],
+   "publishedAt": "2026-09-15T12:00:00.000+00:00",
+   "isListed": true,
+   "isRemote": false,
+   "workplaceType": "OnSite",
+   "address": {
+    "postalAddress": {
+     "addressLocality": "Lisbon",
+     "addressCountry": "Portugal"
+    }
+   },
+   "jobUrl": "https://jobs.ashbyhq.com/Acme/9a8b7c6d-1111-2222-3333-444455556666",
+   "applyUrl": "https://jobs.ashbyhq.com/Acme/9a8b7c6d-1111-2222-3333-444455556666/application",
+   "descriptionHtml": "<p>Design things</p>",
+   "descriptionPlain": "Design things",
+   "compensation": {
+    "compensationTierSummary": "\u20ac50K \u2013 \u20ac60K"
+   }
+  },
+  {
+   "id": "hidden-1",
+   "title": "Unlisted",
+   "isListed": false,
+   "location": "Lisbon",
+   "jobUrl": "x",
+   "applyUrl": "x",
+   "descriptionPlain": ""
+  }
+ ]
+}

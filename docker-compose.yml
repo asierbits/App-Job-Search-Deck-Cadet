@@ -1,0 +1,40 @@
+# Arranque local completo:  docker compose up --build
+# API en http://localhost:8000 (documentación interactiva en /docs)
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: knok
+      POSTGRES_DB: knok
+    volumes: [pgdata:/var/lib/postgresql/data]
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      retries: 20
+
+  api:
+    build: .
+    env_file: [.env]
+    environment:
+      KNOK_DATABASE_URL: postgresql+psycopg://postgres:knok@db:5432/knok
+      KNOK_STORAGE_DIR: /data
+    volumes: [storage:/data]
+    ports: ["8000:8000"]
+    depends_on:
+      db: {condition: service_healthy}
+
+  worker:
+    build: .
+    command: ["python", "-m", "knok.worker"]
+    env_file: [.env]
+    environment:
+      KNOK_DATABASE_URL: postgresql+psycopg://postgres:knok@db:5432/knok
+      KNOK_STORAGE_DIR: /data
+    volumes: [storage:/data]
+    depends_on:
+      api: {condition: service_started}
+
+volumes:
+  pgdata:
+  storage:

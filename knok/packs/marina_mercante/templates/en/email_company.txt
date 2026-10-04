@@ -1,0 +1,16 @@
+Subject: Deck Cadet application - {nombre}
+
+Dear {empresa} team,
+
+My name is {nombre} and I have recently completed my {titulacion} at {universidad}. I am writing to apply for a Deck Cadet position, as I am looking for a vessel on which to complete the onboard sea service required for my Officer of the Watch certificate.
+
+I would be very keen to join your fleet. I am available to embark immediately, and I have attached my CV with my training and certificates.
+
+Please let me know if you need any further information or would like to arrange an interview.
+
+Thank you for your time and consideration.
+
+Kind regards,
+{nombre}
+{telefono}
+{linkedin}

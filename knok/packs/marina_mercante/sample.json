@@ -1,0 +1,293 @@
+{
+ "_comment": "Datos FICTICIOS para Simulación y tests. Dominios @example.* reservados: ningún correo llega a nadie.",
+ "jobs": [
+  {
+   "source_job_id": "gh-1001",
+   "title": "Deck Cadet – 2026 Intake",
+   "company_name": "Naviera Cantábrica de Ferris",
+   "company_website": "https://cantabricaferris.example.com",
+   "city": "Santander",
+   "country": "es",
+   "description": "We are looking for deck cadets to complete their sea service on board our ro-pax ferries. STCW basic training required.",
+   "url": "https://boards.greenhouse.io/knoksample-cantabrica/jobs/1001",
+   "apply_url": "https://boards.greenhouse.io/knoksample-cantabrica/jobs/1001",
+   "days_ago": 2,
+   "questions": [
+    {
+     "id": "first_name",
+     "label": "First Name",
+     "type": "text",
+     "required": true,
+     "options": []
+    },
+    {
+     "id": "last_name",
+     "label": "Last Name",
+     "type": "text",
+     "required": true,
+     "options": []
+    },
+    {
+     "id": "email",
+     "label": "Email",
+     "type": "text",
+     "required": true,
+     "options": []
+    },
+    {
+     "id": "phone",
+     "label": "Phone",
+     "type": "text",
+     "required": false,
+     "options": []
+    },
+    {
+     "id": "resume",
+     "label": "Resume/CV",
+     "type": "file",
+     "required": true,
+     "options": []
+    },
+    {
+     "id": "question_1",
+     "label": "Do you hold valid STCW basic safety certificates?",
+     "type": "select",
+     "required": true,
+     "options": [
+      {
+       "label": "Yes",
+       "value": "1"
+      },
+      {
+       "label": "No",
+       "value": "0"
+      }
+     ]
+    },
+    {
+     "id": "question_2",
+     "label": "How many months of sea time have you completed?",
+     "type": "text",
+     "required": true,
+     "options": []
+    },
+    {
+     "id": "question_3",
+     "label": "What is your favourite ship and why?",
+     "type": "textarea",
+     "required": false,
+     "options": []
+    }
+   ]
+  },
+  {
+   "source_job_id": "adz-1001",
+   "title": "Deck Cadet - 2026 Intake",
+   "company_name": "Naviera Cantábrica de Ferris",
+   "city": "Santander",
+   "country": "es",
+   "description": "Deck cadets wanted.",
+   "url": "https://www.adzuna.es/details/990001",
+   "apply_url": "https://www.adzuna.es/details/990001",
+   "days_ago": 1
+  },
+  {
+   "source_job_id": "lv-2001",
+   "title": "Trainee Officer (Deck) – Fleet Programme",
+   "company_name": "Nordsee Reederei GmbH",
+   "company_website": "https://nordsee-reederei.example.com",
+   "city": "Hamburg",
+   "country": "de",
+   "description": "Cadet programme for future officers of the watch on our container vessels.",
+   "url": "https://jobs.lever.co/knoksample-nordsee/0f9b1c2d-1111-2222-3333-444455556666",
+   "apply_url": "https://jobs.lever.co/knoksample-nordsee/0f9b1c2d-1111-2222-3333-444455556666/apply",
+   "days_ago": 5
+  },
+  {
+   "source_job_id": "ab-3001",
+   "title": "Cadet Officer – LNG Fleet",
+   "company_name": "Aegean Tankers S.A.",
+   "company_website": "https://aegeantankers.example.org",
+   "city": "Piraeus",
+   "country": "gr",
+   "description": "Join our LNG fleet as a deck cadet. Sea service on modern tankers.",
+   "url": "https://jobs.ashbyhq.com/knoksample-aegean/9a8b7c6d-1111-2222-3333-444455556666",
+   "apply_url": "https://jobs.ashbyhq.com/knoksample-aegean/9a8b7c6d-1111-2222-3333-444455556666/application",
+   "days_ago": 9
+  },
+  {
+   "source_job_id": "ij-4001",
+   "title": "Alumno de puente – Ferry Algeciras-Ceuta",
+   "company_name": "Líneas Marítimas del Estrecho",
+   "company_website": "https://lmestrecho.example.com",
+   "city": "Algeciras",
+   "country": "es",
+   "description": "Buscamos alumnos de puente para realizar el periodo de embarque en nuestros buques.",
+   "url": "https://www.infojobs.net/algeciras/alumno-puente/of-i0000knoksample4001",
+   "apply_url": "https://www.infojobs.net/algeciras/alumno-puente/of-i0000knoksample4001",
+   "language": "es",
+   "days_ago": 3
+  },
+  {
+   "source_job_id": "li-5001",
+   "title": "Deck Cadet",
+   "company_name": "Baltic Container Lines",
+   "company_website": "https://balticcl.example.com",
+   "city": "Copenhagen",
+   "country": "dk",
+   "description": "Deck cadet for our container feeder vessels. Easy Apply.",
+   "url": "https://www.linkedin.com/jobs/view/0000005001",
+   "apply_url": "https://www.linkedin.com/jobs/view/0000005001",
+   "easy_apply": true,
+   "days_ago": 4
+  },
+  {
+   "source_job_id": "em-6001",
+   "title": "Deck Cadet (alumno de puente)",
+   "company_name": "Atlántica Car Carriers",
+   "company_website": "https://atlanticacc.example.org",
+   "city": "Vigo",
+   "country": "es",
+   "description": "Envía tu CV a crewing@atlanticacc.example.org indicando tus certificados STCW.",
+   "url": "https://atlanticacc.example.org/careers/deck-cadet",
+   "apply_email": "crewing@atlanticacc.example.org",
+   "days_ago": 6
+  },
+  {
+   "source_job_id": "em-6002",
+   "title": "Deck cadet",
+   "company_name": "Graneleros del Nervión",
+   "company_website": "https://granervion.example.net",
+   "city": "Bilbao",
+   "country": "es",
+   "description": "Send your CV to ana.lopez@granervion.example.net",
+   "url": "https://granervion.example.net/empleo",
+   "apply_email": "ana.lopez@granervion.example.net",
+   "days_ago": 8
+  },
+  {
+   "source_job_id": "in-7001",
+   "title": "Deck Cadet",
+   "company_name": "Brittany Sea Ferries",
+   "company_website": "https://britseaferries.example.net",
+   "city": "Roscoff",
+   "country": "fr",
+   "description": "Deck cadet position. Apply on Indeed.",
+   "url": "https://fr.indeed.com/viewjob?jk=knoksample7001",
+   "apply_url": "https://fr.indeed.com/viewjob?jk=knoksample7001",
+   "days_ago": 12
+  },
+  {
+   "source_job_id": "gh-1002",
+   "title": "Accountant (m/f/d)",
+   "company_name": "Naviera Cantábrica de Ferris",
+   "company_website": "https://cantabricaferris.example.com",
+   "city": "Santander",
+   "country": "es",
+   "description": "Accounting role in our head office.",
+   "url": "https://boards.greenhouse.io/knoksample-cantabrica/jobs/1002",
+   "apply_url": "https://boards.greenhouse.io/knoksample-cantabrica/jobs/1002",
+   "days_ago": 2
+  }
+ ],
+ "companies": [
+  {
+   "name": "Naviera Cantábrica de Ferris",
+   "website": "https://cantabricaferris.example.com",
+   "email": "flota@cantabricaferris.example.com",
+   "city": "Santander",
+   "country": "es",
+   "sector": "Ferris"
+  },
+  {
+   "name": "Petroleros Ibéricos",
+   "website": "https://petroibericos.example.net",
+   "email": "flota@petroibericos.example.net",
+   "city": "Madrid",
+   "country": "es",
+   "sector": "Naviera (carga)"
+  },
+  {
+   "name": "Contenedores Mediterráneo",
+   "website": "https://contemed.example.com",
+   "email": "cadetes@contemed.example.com",
+   "city": "Valencia",
+   "country": "es",
+   "sector": "Naviera (carga)"
+  },
+  {
+   "name": "Cruceros Costa Norte",
+   "website": "https://costanorte.example.org",
+   "email": "marine.hr@costanorte.example.org",
+   "city": "Barcelona",
+   "country": "es",
+   "sector": "Cruceros"
+  },
+  {
+   "name": "Gaseros del Cantábrico",
+   "website": "https://gaseroscant.example.net",
+   "email": "info@gaseroscant.example.net",
+   "city": "Bilbao",
+   "country": "es",
+   "sector": "Naviera (carga)"
+  },
+  {
+   "name": "Tripulaciones Marítimas del Norte",
+   "website": "https://tripnorte.example.com",
+   "email": "alumnos@tripnorte.example.com",
+   "city": "Bilbao",
+   "country": "es",
+   "sector": "Agencia de tripulación",
+   "kind": "agency"
+  },
+  {
+   "name": "Fjord Line Ferries AS",
+   "website": "https://fjordferries.example.org",
+   "email": "cadets@fjordferries.example.org",
+   "city": "Bergen",
+   "country": "no",
+   "sector": "Ferris"
+  },
+  {
+   "name": "Holland Bulk Shipping B.V.",
+   "website": "https://hollandbulk.example.net",
+   "email": "crew@hollandbulk.example.net",
+   "city": "Rotterdam",
+   "country": "nl",
+   "sector": "Naviera (carga)"
+  },
+  {
+   "name": "Mediterranea Crociere",
+   "website": "https://medcrociere.example.com",
+   "email": "marinehr@medcrociere.example.com",
+   "city": "Genova",
+   "country": "it",
+   "sector": "Cruceros"
+  },
+  {
+   "name": "EuroCrew Manning Agency",
+   "website": "https://eurocrew.example.org",
+   "email": "cadets@eurocrew.example.org",
+   "city": "Limassol",
+   "country": "cy",
+   "sector": "Agencia de tripulación",
+   "kind": "agency"
+  },
+  {
+   "name": "Navieras del Sur (solo web)",
+   "website": "https://navierasdelsur.example.com",
+   "city": "Cádiz",
+   "country": "es",
+   "sector": "Naviera",
+   "careers_url": "https://navierasdelsur.example.com/trabaja"
+  },
+  {
+   "name": "Remolcadores del Puerto",
+   "website": "https://remolcadores.example.net",
+   "email": "jose.garcia@remolcadores.example.net",
+   "city": "Huelva",
+   "country": "es",
+   "sector": "Remolque"
+  }
+ ]
+}

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>knok · banco de pruebas</title>
+<style>
+  body { font: 14px system-ui, sans-serif; max-width: 70rem; margin: 1rem auto; padding: 0 1rem; }
+  section { border: 1px solid #ccc; margin: 1rem 0; padding: .5rem 1rem; }
+  textarea { width: 100%; min-height: 8rem; font: 12px monospace; }
+  pre { background: #f5f5f5; padding: .5rem; overflow: auto; max-height: 20rem; font-size: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  td, th { border: 1px solid #ddd; padding: 3px 6px; vertical-align: top; text-align: left; }
+  input[type=text], input[type=email], input[type=password] { width: 16rem; }
+</style>
+</head>
+<body>
+<h1>knok · banco de pruebas</h1>
+<p>Interfaz mínima para probar el motor. La documentación completa de la API está en <a href="/docs">/docs</a>.
+   Nada se envía sin pulsar «Enviar seleccionadas».</p>
+
+<section><h2>1 · Cuenta</h2>
+  <input id="email" type="email" placeholder="email"> <input id="pass" type="password" placeholder="contraseña (8+)">
+  <select id="pack"></select>
+  <button onclick="cuenta('register')">Crear cuenta</button> <button onclick="cuenta('login')">Entrar</button>
+  <button onclick="salir()">Salir</button> <span id="quien"></span>
+</section>
+
+<section><h2>2 · Perfil (JSON)</h2>
+  <button onclick="cargarPerfil()">Cargar</button> <button onclick="guardarPerfil()">Guardar</button>
+  <textarea id="perfil"></textarea>
+  CV: <input id="cv" type="file"> <button onclick="subirCV()">Subir</button>
+  <pre id="perfilOut"></pre>
+</section>
+
+<section><h2>3 · Búsqueda</h2>
+  Países <input id="paises" type="text" value="es, de, gr, dk"> Ciudades <input id="ciudades" type="text">
+  Palabras <input id="palabras" type="text"> <button onclick="buscar()">Buscar</button>
+  <pre id="busquedaOut"></pre>
+</section>
+
+<section><h2>4 · Tanda: revisar y enviar</h2>
+  <button onclick="crearTanda()">Preparar tanda (~40)</button>
+  <button onclick="enviarSeleccionadas()">Enviar seleccionadas</button>
+  <div id="tanda"></div>
+  <pre id="tandaOut"></pre>
+</section>
+
+<section><h2>5 · Seguimiento</h2>
+  <button onclick="seguimiento()">Actualizar</button> <a href="#" onclick="csv();return false">Exportar CSV</a>
+  <pre id="seguimientoOut"></pre>
+</section>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let busquedaId = null, tandaId = null;
+const lista = (v) => v.split(",").map((x) => x.trim()).filter(Boolean);
+
+async function api(path, opts = {}) {
+  const h = { ...(opts.headers || {}) };
+  const tok = localStorage.getItem("knokToken");
+  if (tok) h.Authorization = "Bearer " + tok;
+  if (opts.json !== undefined) { h["Content-Type"] = "application/json"; opts.body = JSON.stringify(opts.json); }
+  const r = await fetch(path, { method: opts.method || "GET", headers: h, body: opts.body });
+  const ct = r.headers.get("content-type") || "";
+  const data = ct.includes("json") ? await r.json() : await r.text();
+  if (!r.ok) throw new Error(JSON.stringify(data));
+  return data;
+}
+const show = (id, d) => { $(id).textContent = typeof d === "string" ? d : JSON.stringify(d, null, 2); };
+
+async function cuenta(tipo) {
+  try {
+    const d = await api("/auth/" + tipo, { method: "POST", json: { email: $("email").value, password: $("pass").value, pack: $("pack").value } });
+    localStorage.setItem("knokToken", d.token); quien();
+  } catch (e) { alert(e.message); }
+}
+function salir() { localStorage.removeItem("knokToken"); $("quien").textContent = ""; }
+async function quien() { try { const me = await api("/me"); $("quien").textContent = me.user.email + " · modo " + me.profile.mode; } catch (_) {} }
+
+async function cargarPerfil() { const me = await api("/me"); $("perfil").value = JSON.stringify(me.profile, null, 2); show("perfilOut", me.sending_problems); }
+async function guardarPerfil() { try { show("perfilOut", await api("/me/profile", { method: "PATCH", json: JSON.parse($("perfil").value) })); } catch (e) { show("perfilOut", e.message); } }
+async function subirCV() {
+  const fd = new FormData(); fd.append("file", $("cv").files[0]); fd.append("kind", "cv");
+  show("perfilOut", await api("/me/documents", { method: "POST", body: fd }));
+}
+
+async function buscar() {
+  let s = await api("/searches", { method: "POST", json: { countries: lista($("paises").value), cities: lista($("ciudades").value), keywords: lista($("palabras").value) } });
+  while (s.status === "queued" || s.status === "running") { await new Promise((r) => setTimeout(r, 1500)); s = await api("/searches/" + s.id); show("busquedaOut", s); }
+  busquedaId = s.id;
+  const res = await api("/searches/" + s.id + "/results?limit=100");
+  show("busquedaOut", s.stats.routes ? `${res.total} resultados por vía: ${JSON.stringify(s.stats.routes)}\n\n` +
+    res.items.map((i) => `[${i.route}] ${i.score} · ${i.job ? i.job.title + " — " + i.job.company_name : i.company.name}`).join("\n") : s);
+}
+
+async function crearTanda() {
+  if (!busquedaId) return alert("Primero busca");
+  const b = await api("/batches", { method: "POST", json: { search_id: busquedaId, size: 40 } });
+  tandaId = b.id; pintarTanda(b);
+}
+function pintarTanda(b) {
+  $("tanda").innerHTML = "<table><tr><th></th><th>Vía</th><th>Oferta / empresa</th><th>Estado</th><th>Deducido / revisar / falta</th><th>Bloquea</th></tr>" +
+    b.items.map((i) => `<tr><td><input type="checkbox" class="sel" value="${i.id}" ${i.blocking.length ? "" : ""}></td>
+      <td>${i.route}<br><small>${i.platform}</small></td>
+      <td>${i.job ? i.job.title + "<br><small>" + i.job.company_name + "</small>" : (i.company ? i.company.name : "")}
+        ${i.email ? "<br><small>→ " + i.email.to + "</small><details><summary>correo</summary><pre>" + i.email.subject + "\n\n" + i.email.body + "</pre></details>" : ""}</td>
+      <td>${i.status}</td><td>${i.deduced.length} / ${i.needs_review.length} / ${i.missing.length}</td>
+      <td><small>${i.blocking.map((p) => p.message).join("<br>")}${i.warnings.map((w) => "⚠ " + w.type).join("<br>")}</small></td></tr>`).join("") + "</table>";
+}
+async function enviarSeleccionadas() {
+  const ids = Array.from(document.querySelectorAll(".sel:checked")).map((x) => +x.value);
+  if (!ids.length) return alert("Selecciona alguna");
+  if (!confirm(`¿Enviar ${ids.length} candidatura(s)? (en modo simulación no sale nada)`)) return;
+  show("tandaOut", await api("/batches/" + tandaId + "/send", { method: "POST", json: { application_ids: ids } }));
+  pintarTanda(await api("/batches/" + tandaId));
+}
+
+async function seguimiento() {
+  const [s, l, e] = await Promise.all([api("/tracking/summary"), api("/tracking?limit=50"), api("/events?limit=15")]);
+  show("seguimientoOut", { resumen: s, candidaturas: l.items.map((i) => `${i.status} · ${i.title || i.company} ${i.last_reply ? "· respuesta: " + i.last_reply.category : ""}`), actividad: e.map((x) => x.message) });
+}
+async function csv() {
+  const t = await api("/tracking/export.csv");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([t], { type: "text/csv" })); a.download = "knok.csv"; a.click();
+}
+
+api("/packs").then((ps) => { $("pack").innerHTML = ps.map((p) => `<option value="${p.slug}">${p.names.es}</option>`).join(""); });
+quien();
+</script>
+</body>
+</html>

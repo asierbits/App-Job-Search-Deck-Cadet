@@ -1,0 +1,45 @@
+[
+ {
+  "additional": "<div>Benefits</div>",
+  "additionalPlain": "Benefits",
+  "categories": {
+   "commitment": "Full-time",
+   "department": "Ops",
+   "location": "Barcelona, Spain",
+   "team": "Operations",
+   "allLocations": [
+    "Barcelona, Spain"
+   ]
+  },
+  "createdAt": 1758300000000,
+  "descriptionPlain": "Run operations.",
+  "description": "<div>Run operations.</div>",
+  "id": "0f9b1c2d-1111-2222-3333-444455556666",
+  "lists": [
+   {
+    "text": "Requirements",
+    "content": "<li>3 years</li>"
+   }
+  ],
+  "text": "Operations Manager",
+  "country": "ES",
+  "workplaceType": "hybrid",
+  "hostedUrl": "https://jobs.lever.co/acme/0f9b1c2d-1111-2222-3333-444455556666",
+  "applyUrl": "https://jobs.lever.co/acme/0f9b1c2d-1111-2222-3333-444455556666/apply"
+ },
+ {
+  "categories": {
+   "location": "Remote",
+   "team": "Eng"
+  },
+  "createdAt": 1758400000000,
+  "descriptionPlain": "Remote job",
+  "id": "aaaaaaaa-1111-2222-3333-444455556666",
+  "lists": [],
+  "text": "Frontend Developer",
+  "country": "DE",
+  "workplaceType": "remote",
+  "hostedUrl": "https://jobs.lever.co/acme/aaaaaaaa-1111-2222-3333-444455556666",
+  "applyUrl": "https://jobs.lever.co/acme/aaaaaaaa-1111-2222-3333-444455556666/apply"
+ }
+]

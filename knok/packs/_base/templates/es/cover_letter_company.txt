@@ -1,0 +1,8 @@
+Estimado equipo de {empresa}:
+
+Me dirijo a ustedes para presentar mi candidatura al puesto de {puesto}. Creo que mi formación y mi motivación encajan con lo que buscan, y me encantaría poder aportar a {empresa}.
+
+Quedo a su disposición para una entrevista.
+
+Un saludo,
+{nombre}

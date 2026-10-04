@@ -1,0 +1,8 @@
+Dear {empresa} team,
+
+I am writing to apply for the {puesto} position. I believe my background and motivation are a good match for what you are looking for, and I would love to contribute to {empresa}.
+
+I would welcome the opportunity to discuss my application in an interview.
+
+Kind regards,
+{nombre}

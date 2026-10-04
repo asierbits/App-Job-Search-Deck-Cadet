@@ -1,0 +1,24 @@
+<!doctype html><html><head><title>Job Application for Deck Cadet at Naviera Ejemplo</title></head><body>
+<h1 class="app-title">Deck Cadet</h1><span class="company-name">at Naviera Ejemplo</span><div class="location">Santander, Spain</div>
+<form id="application_form" action="/apply" method="post">
+  <div class="field"><label for="first_name">First Name <span>*</span></label><input id="first_name" name="job_application[first_name]" type="text" required></div>
+  <div class="field"><label for="last_name">Last Name *</label><input id="last_name" name="job_application[last_name]" type="text" required></div>
+  <div class="field"><label for="email">Email *</label><input id="email" name="job_application[email]" type="email" required></div>
+  <div class="field"><label for="phone">Phone</label><input id="phone" name="job_application[phone]" type="tel"></div>
+  <div class="field"><label>Resume/CV *</label><input id="resume" name="job_application[resume]" type="file" required style="display:none"></div>
+  <div class="field"><label for="q1">LinkedIn Profile</label><input id="q1" name="job_application[answers_attributes][0][text_value]" type="text"></div>
+  <div class="field"><label for="q2">Are you legally authorized to work in Spain? *</label>
+    <select id="q2" name="job_application[answers_attributes][1][boolean_value]" required><option value="">--</option><option value="1">Yes</option><option value="0">No</option></select></div>
+  <div class="field"><label for="q3">What is your favourite ship and why?</label><textarea id="q3" name="q3"></textarea></div>
+  <div class="field"><label><input id="consent" type="checkbox" name="consent" required> I agree to the privacy policy</label></div>
+  <input type="hidden" name="token" value="abc">
+  <button id="submit_app" type="submit">Submit Application</button>
+</form>
+<script>
+  window.contadores = { submit: 0, clickEnviar: 0, input: 0, change: 0 };
+  document.getElementById('application_form').addEventListener('submit', (e) => { e.preventDefault(); window.contadores.submit++; });
+  document.getElementById('submit_app').addEventListener('click', () => window.contadores.clickEnviar++);
+  document.addEventListener('input', () => window.contadores.input++, true);
+  document.addEventListener('change', () => window.contadores.change++, true);
+</script>
+</body></html>

@@ -1,0 +1,11 @@
+Subject: Application: {puesto} - {nombre}
+
+Dear {empresa} team,
+
+I am writing to apply for the {puesto} position. I have recently completed my {titulacion} at {universidad}, and my research interests focus on {area}.
+
+Please find my CV attached. I would be glad to send any additional documents (transcripts, reference letters, research proposal).
+
+Kind regards,
+{nombre}
+{email}

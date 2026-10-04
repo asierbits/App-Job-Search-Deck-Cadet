@@ -1,0 +1,32 @@
+# Pack genérico: sin nicho. Lo usa cualquier perfil que aún no haya elegido uno.
+slug: general
+names: {es: General, en: General}
+description:
+  es: Búsqueda de empleo general, sin sector concreto.
+  en: General job search, no specific sector.
+languages: [es, en]
+sources:
+  default_countries: [es]
+  osm:
+    tags:
+      office: [company, it, consulting, engineer, architect, accountant, tax_advisor, advertising_agency,
+               financial, insurance, lawyer, research, telecommunication, logistics, estate_agent, employment_agency]
+    agency_tags: ["office=employment_agency"]
+    sector_labels:
+      company: Empresa
+      it: Informática / IT
+      consulting: Consultoría
+      engineer: Ingeniería
+      architect: Arquitectura
+      accountant: Contabilidad
+      tax_advisor: Asesoría fiscal
+      advertising_agency: Publicidad / Marketing
+      financial: Finanzas
+      insurance: Seguros
+      lawyer: Abogacía
+      research: Investigación / I+D
+      telecommunication: Telecomunicaciones
+      logistics: Logística
+      estate_agent: Inmobiliaria
+      employment_agency: Agencia de empleo / ETT
+sample_data: sample.json

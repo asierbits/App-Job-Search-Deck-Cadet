@@ -1,0 +1,11 @@
+Subject: Candidatura: {puesto} - {nombre}
+
+Estimado equipo de {empresa}:
+
+Les escribo para presentar mi candidatura a la plaza de {puesto}. He finalizado el {titulacion} en la {universidad} y mi interés se centra en {area}.
+
+Les adjunto mi currículum y quedo a su disposición para enviar cualquier documento adicional (expediente, cartas de referencia, propuesta de investigación).
+
+Un saludo,
+{nombre}
+{email}
