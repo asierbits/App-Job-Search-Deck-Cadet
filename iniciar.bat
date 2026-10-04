@@ -5,13 +5,14 @@ cd /d "%~dp0"
 
 where docker >nul 2>nul
 if errorlevel 1 (
-  echo No encuentro Docker. Instala Docker Desktop: https://www.docker.com/products/docker-desktop/
+  echo No encuentro Docker. Usa iniciar-sin-docker.bat (no necesita Docker) o instala Docker Desktop.
   pause
   exit /b 1
 )
 docker info >nul 2>nul
 if errorlevel 1 (
-  echo Docker Desktop no esta abierto. Abrelo, espera a que diga "Engine running" y vuelve a ejecutar este archivo.
+  echo Docker no esta funcionando. Si Docker Desktop dice que falta la virtualizacion,
+  echo usa iniciar-sin-docker.bat: funciona igual sin Docker.
   pause
   exit /b 1
 )

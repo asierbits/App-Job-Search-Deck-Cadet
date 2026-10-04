@@ -2,7 +2,7 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -18,8 +18,17 @@ def configure(url: str | None = None) -> Engine:
     url = url or get_settings().database_url
     kwargs = {"pool_pre_ping": True, "future": True}
     if url.startswith("sqlite"):
-        kwargs = {"connect_args": {"check_same_thread": False}}
+        # Modo local sin Postgres: la API y el worker integrado comparten el archivo
+        kwargs = {"connect_args": {"check_same_thread": False, "timeout": 30}}
     _engine = create_engine(url, **kwargs)
+    if url.startswith("sqlite"):
+        @event.listens_for(_engine, "connect")
+        def _pragmas(conn, _):
+            cur = conn.cursor()
+            cur.execute("PRAGMA journal_mode=WAL")
+            cur.execute("PRAGMA foreign_keys=ON")
+            cur.execute("PRAGMA busy_timeout=30000")
+            cur.close()
     _factory = sessionmaker(bind=_engine, expire_on_commit=False, autoflush=False)
     return _engine
 

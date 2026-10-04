@@ -50,6 +50,17 @@ def create_app() -> FastAPI:
     for r in routers.ALL:
         app.include_router(r)
 
+    if s.embedded_worker and not s.tasks_eager:
+        @app.on_event("startup")
+        def _worker():
+            from knok.worker.__main__ import start_embedded
+            app.state.worker_stop = start_embedded()
+
+        @app.on_event("shutdown")
+        def _parar_worker():
+            if getattr(app.state, "worker_stop", None):
+                app.state.worker_stop.set()
+
     @app.get("/health", tags=["system"])
     def health():
         with dbs.engine().connect() as c:

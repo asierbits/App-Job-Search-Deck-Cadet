@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     # --- cola de tareas
     tasks_eager: bool = False                      # True: las tareas se ejecutan en el acto (tests/demos)
+    embedded_worker: bool = False                  # True: la API lleva el worker dentro (uso local, un solo proceso)
 
     # --- red
     crawler_user_agent: str = "knok-bot/0.1 (+https://knok.app/bot; busca contactos de empleo publicados)"

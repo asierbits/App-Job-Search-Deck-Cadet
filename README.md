@@ -23,12 +23,21 @@ conecta a esta API. Incluye una extensión de Chrome (modo copiloto) que habla c
 
 ## Arrancar en local
 
-### La forma fácil
+### La forma fácil (sin Docker)
 
-1. Instala y abre **Docker Desktop**.
-2. Doble clic en **`iniciar.bat`** (Windows) o ejecuta `./iniciar.sh` (Mac/Linux).
-3. Se abre <http://localhost:8000/playground>. La primera vez arranca en **modo de prueba sin red** (datos de
-   ejemplo, no sale ningún correo). Para pararlo: `detener.bat` o `docker compose down`.
+1. Ten instalado **Python 3.11 o más reciente** (al instalarlo en Windows, marca «Add python.exe to PATH»).
+2. Doble clic en **`iniciar-sin-docker.bat`** (Windows) o ejecuta `./iniciar-sin-docker.sh` (Mac/Linux).
+   La primera vez prepara todo (unos minutos).
+3. Se abre <http://localhost:8000/playground>. Arranca en **modo de prueba sin red** (datos de ejemplo, no sale
+   ningún correo). Para pararlo, cierra la ventana.
+
+Usa una base de datos en un archivo (`knok.db`, SQLite) y el worker va dentro de la API: un solo proceso,
+ideal para tu ordenador. Para un servidor con varios usuarios, usa Docker con Postgres.
+
+### Con Docker
+
+Instala y abre **Docker Desktop** (necesita la virtualización activada en la BIOS) y haz doble clic en
+**`iniciar.bat`** (o `./iniciar.sh`). Para pararlo: `detener.bat` o `docker compose down`.
 
 ### Opción A · Docker (todo incluido)
 
@@ -46,7 +55,7 @@ Requisitos: Python 3.11+ y un Postgres 16.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev]"                  # incluye el conector de Postgres
 cp .env.example .env                     # pon tu KNOK_DATABASE_URL
 alembic upgrade head                     # crea las tablas
 uvicorn knok.api.main:app --reload       # API
