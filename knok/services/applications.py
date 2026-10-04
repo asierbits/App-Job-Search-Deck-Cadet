@@ -165,7 +165,11 @@ def create_batch(db: Session, profile: Profile, search_id: int | None = None, re
             continue
         job = db.get(Job, r.job_id) if r.job_id else None
         company = db.get(Company, r.company_id) if r.company_id else (job.company if job else None)
-        if find_existing(db, profile, job.id if job else None, company.id if company else None):
+        existente = find_existing(db, profile, job.id if job else None, company.id if company else None)
+        if existente is not None:
+            if existente.status in OPEN:   # preparada antes y sin enviar: entra en esta tanda
+                existente.batch_id = batch.id
+                n += 1
             continue
         new_application(db, profile, job, company, batch)
         n += 1

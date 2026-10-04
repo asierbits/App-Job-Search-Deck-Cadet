@@ -11,16 +11,18 @@ from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from knok.api.deps import ApiError, current_user, get_db
 from knok.core.http import default_http
-from knok.core.mail import gmail
+from knok.core.mail import apppassword, gmail
 from knok.core.sources import infojobs
 from knok.db.models import OAuthAccount, OAuthState, User, utcnow
 from knok.security import decrypt, encrypt, random_id
 from knok.services.events import log_event
+from knok.services.mailer import APP_PASSWORD
 from knok.settings import get_settings
 
 router = APIRouter(prefix="/connections", tags=["me"])
@@ -34,7 +36,7 @@ def _callback(provider: str) -> str:
 def _safe_return(return_to: str) -> str:
     """Solo se vuelve a orígenes permitidos (tu web), nunca a una URL arbitraria."""
     s = get_settings()
-    permitidos = [o.rstrip("/") for o in s.cors_origins + [s.web_base_url]]
+    permitidos = [o.rstrip("/") for o in s.cors_origins + [s.web_base_url, s.public_base_url]]
     if return_to and any(return_to.startswith(o + "/") or return_to == o for o in permitidos):
         return return_to
     return s.web_base_url
@@ -106,8 +108,32 @@ def google_callback(state: str = "", code: str = "", error: str = "", db: Sessio
 def google_disconnect(user: User = Depends(current_user), db: Session = Depends(get_db)):
     acc = db.scalar(select(OAuthAccount).where(OAuthAccount.user_id == user.id, OAuthAccount.provider == "google"))
     if acc:
-        gmail.revoke(default_http(), decrypt(acc.refresh_token_enc) or decrypt(acc.access_token_enc))
+        if acc.scopes != APP_PASSWORD:
+            gmail.revoke(default_http(), decrypt(acc.refresh_token_enc) or decrypt(acc.access_token_enc))
         db.delete(acc)
+
+
+class AppPasswordIn(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=16, max_length=40, description="Las 16 letras de la contraseña de aplicación")
+
+
+@router.post("/google/app-password", summary="Conectar Gmail con contraseña de aplicación (solo panel local)")
+def google_app_password(data: AppPasswordIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Como en la primera versión: sin crear un proyecto en Google Cloud. Solo con KNOK_LOCAL_SINGLE_USER,
+    porque la contraseña da acceso al buzón entero y solo debe guardarse en el ordenador del usuario."""
+    if not get_settings().local_single_user:
+        raise ApiError(404, "not_found", "Solo disponible en el panel local; en la web se usa «Conectar con Google»")
+    correo, clave = str(data.email).strip().lower(), apppassword.clean_password(data.password)
+    if len(clave) != 16:
+        raise ApiError(422, "bad_app_password", "La contraseña de aplicación tiene 16 letras (sin contar espacios)")
+    try:
+        apppassword.check_login(correo, clave)
+    except apppassword.MailboxError as ex:
+        raise ApiError(400 if ex.reconnect else 502, "gmail_login_failed", str(ex))
+    _save_account(db, user.id, "google", correo, clave, "", None, APP_PASSWORD)
+    log_event(db, user.id, f"Gmail conectado con contraseña de aplicación ({correo}).", "ok")
+    return {"connected": True, "email": correo, "method": APP_PASSWORD}
 
 
 # ------------------------------------------------------------------------------------- InfoJobs

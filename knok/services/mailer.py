@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from knok import storage
 from knok.core.http import default_http
-from knok.core.mail import gmail, simulator
+from knok.core.mail import apppassword, gmail, simulator
 from knok.core.mail.classify import application_status_for, classify
 from knok.core.mail.message import build, new_message_id
 from knok.db.models import Application, Document, Email, OAuthAccount, Profile, Reply, SimulatedReply, utcnow
@@ -54,6 +54,22 @@ def google_access(db: Session, user_id: int) -> tuple[str, str]:
         acc.access_token_enc, acc.expires_at = encrypt(t["access_token"]), t["expires_at"]
         token = t["access_token"]
     return token, acc.account_email
+
+
+APP_PASSWORD = "app_password"   # OAuthAccount.scopes de una cuenta conectada con contraseña de aplicación (solo local)
+
+
+def send_raw(db: Session, user_id: int, raw: bytes, to_addr: str) -> dict:
+    """Envía por la cuenta conectada: API de Gmail (OAuth) o SMTP (contraseña de aplicación, uso local)."""
+    acc = db.scalar(select(OAuthAccount).where(OAuthAccount.user_id == user_id, OAuthAccount.provider == "google"))
+    if acc is not None and acc.scopes == APP_PASSWORD:
+        try:
+            apppassword.send(acc.account_email, decrypt(acc.access_token_enc), raw, [to_addr])
+        except apppassword.MailboxError as ex:
+            raise gmail.GmailError(str(ex), retryable=ex.retryable, reconnect=ex.reconnect)
+        return {}
+    token, _ = google_access(db, user_id)
+    return gmail.send(default_http(), token, raw)
 
 
 # ------------------------------------------------------------------------------------- contadores
@@ -171,8 +187,7 @@ def send_email_task(db: Session, payload: dict) -> dict:
         _schedule_simulated_reply(db, e)
     else:
         try:
-            token, _ = google_access(db, e.user_id)
-            res = gmail.send(default_http(), token, raw)
+            res = send_raw(db, e.user_id, raw, e.to_addr)
         except gmail.GmailError as ex:
             if ex.retryable:
                 raise Reschedule(utcnow() + timedelta(minutes=30), str(ex))

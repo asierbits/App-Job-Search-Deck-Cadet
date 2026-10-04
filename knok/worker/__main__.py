@@ -11,6 +11,7 @@ from knok.worker import queue
 # Tareas periódicas: nombre → cada cuánto
 PERIODIC = {
     "deliver_simulated_replies": timedelta(seconds=15),
+    "check_inbox": timedelta(minutes=3),        # solo cuentas con contraseña de aplicación (uso local)
     "mark_followups_due": timedelta(hours=1),
     "refresh_ats_boards": timedelta(hours=6),
 }

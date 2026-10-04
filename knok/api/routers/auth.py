@@ -130,3 +130,26 @@ def revoke_token(token_id: int, user: User = Depends(current_user), db: Session 
     if t is None or t.user_id != user.id:
         raise not_found("Token")
     db.delete(t)
+
+
+LOCAL_EMAIL = "local@knok.local"
+LOOPBACK = {"127.0.0.1", "::1", "localhost", "testclient"}
+
+
+@router.get("/local", response_model=TokenOut, summary="Sesión del panel local (un usuario en tu PC, sin login)")
+def local_session(request: Request, db: Session = Depends(get_db)):
+    """Solo con KNOK_LOCAL_SINGLE_USER=true y solo desde este mismo ordenador."""
+    s = get_settings()
+    if not s.local_single_user:
+        raise ApiError(404, "not_found", "No disponible")
+    if (request.client.host if request.client else "") not in LOOPBACK:
+        raise ApiError(403, "forbidden", "La sesión local solo funciona desde este ordenador")
+    user = db.scalar(select(User).where(User.email == LOCAL_EMAIL))
+    if user is None:
+        from knok.packs.loader import all_packs
+        user = User(email=LOCAL_EMAIL, password_hash=hash_password(random_id(24)), locale="es")
+        db.add(user)
+        db.flush()
+        pack = s.local_default_pack if s.local_default_pack in all_packs() else "general"
+        db.add(Profile(user_id=user.id, email="", pack=pack, inbound_token=random_id(12)))
+    return issue_token(db, user, name="panel local", days=3650)

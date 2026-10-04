@@ -203,7 +203,11 @@ def process_inbound(db: Session, inbound: Inbound) -> dict:
                   f"{inbound.gmail_confirmation}", "warning", code=inbound.gmail_confirmation)
         return {"gmail_confirmation": True}
 
-    uid = perfil.user_id
+    return record_inbound(db, perfil.user_id, inbound, "forward")
+
+
+def match_application(db: Session, uid: int, inbound: Inbound) -> Application | None:
+    """¿A qué candidatura responde este correo? Por las cabeceras de respuesta o por el remitente."""
     remitente = inbound.original_from or inbound.from_addr
     app = None
     if inbound.references:   # 1) responde directamente a un correo nuestro
@@ -226,9 +230,15 @@ def process_inbound(db: Session, inbound: Inbound) -> dict:
                 if dom in doms:
                     app = a
                     break
+    return app
+
+
+def record_inbound(db: Session, uid: int, inbound: Inbound, source: str) -> dict:
+    remitente = inbound.original_from or inbound.from_addr
+    app = match_application(db, uid, inbound)
     if app is None:
         return {"ignored": "no corresponde a ninguna candidatura"}
-    r = record_reply(db, user_id=uid, app=app, mode=app.mode, source="forward", from_addr=remitente,
+    r = record_reply(db, user_id=uid, app=app, mode=app.mode, source=source, from_addr=remitente,
                      subject=inbound.subject, body=inbound.body, category="auto" if inbound.auto_submitted else None)
     log_event(db, uid, f"Respuesta de {remitente} ({r.category}).", "ok", application_id=app.id, reply_id=r.id)
     return {"application_id": app.id, "reply_id": r.id, "category": r.category}

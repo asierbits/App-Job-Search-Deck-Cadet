@@ -28,6 +28,7 @@ TAGS = [
     {"name": "search", "description": "Búsquedas y resultados"},
     {"name": "review", "description": "Tandas, revisión y envío"},
     {"name": "tracking", "description": "Seguimiento (mini-CRM), respuestas y exportación"},
+    {"name": "panel", "description": "Atajos para el panel: estado, tabla y envío de lo marcado"},
     {"name": "extension", "description": "Endpoints para la extensión de Chrome"},
     {"name": "catalog", "description": "Base común: empresas, ofertas y tableros de ATS"},
     {"name": "admin", "description": "Revisión del diccionario de preguntas"},
