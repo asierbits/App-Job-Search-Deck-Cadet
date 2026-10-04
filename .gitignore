@@ -1,13 +1,29 @@
-# Datos personales y secretos: nunca al repositorio
-secretos.json
+# Secretos y datos locales: nunca al repositorio
+.env
+storage/
+*.db
+*.db-*
+
+# Programa antiguo (legacy/): datos personales
+legacy/config.json
+legacy/secretos.json
+legacy/datos/*.db
+legacy/datos/*.db-*
+legacy/datos/bandeja_salida_simulacion/
+legacy/datos/cv.*
+legacy/datos/adjuntos/
 config.json
-datos/*.db
-datos/*.db-*
-datos/bandeja_salida_simulacion/
-datos/cv.*
-datos/adjuntos/
+secretos.json
 
 # Python
 __pycache__/
 *.pyc
 .venv/
+*.egg-info/
+.pytest_cache/
+build/
+
+# Extensión
+extension/node_modules/
+extension/test-results/
+extension/dist/

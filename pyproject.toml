@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "knok"
+version = "0.1.0"
+description = "Motor de knok: busca ofertas y empresas, decide cómo aplicar, rellena solicitudes y prepara correos para revisar y enviar."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "sqlalchemy>=2.0.30",
+    "alembic>=1.13",
+    "psycopg[binary]>=3.1",
+    "httpx>=0.27",
+    "tldextract>=5.1",
+    "cryptography>=42",
+    "PyYAML>=6",
+    "python-multipart>=0.0.9",
+    "email-validator>=2.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "respx>=0.21"]
+
+[project.scripts]
+knok-worker = "knok.worker.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["knok*"]
+
+[tool.setuptools.package-data]
+"knok" = ["**/*.yaml", "**/*.json", "**/*.txt", "**/*.html", "db/migrations/script.py.mako"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]
