@@ -150,3 +150,22 @@ def test_parseo_de_reenvio_manual():
               "Queremos conocerte")
     i = parse(correo_entrante("u-abcdefgh12@in.knok.app", "ana@gmail.com", "Fwd: Re: x", cuerpo))
     assert i.original_from == "rrhh@empresa.com" and i.tokens == ["abcdefgh12"]
+
+
+def test_sugerir_respuesta_esta_desactivado(client, auth):
+    _, correos = enviar_correos(client, auth, 1)
+    r = client.post(f"/applications/{correos[0]['id']}/replies", headers=auth, json={"body": "Hola"}).json()
+    s = client.get(f"/replies/{r['reply']['id']}/suggestion", headers=auth)
+    assert s.status_code == 501 and s.json()["detail"]["code"] == "disabled"
+
+
+def test_acuse_automatico_no_cuenta_como_respuesta(client, auth, db):
+    _, correos = enviar_correos(client, auth, 1)
+    aid = correos[0]["id"]
+    app = db.get(Application, aid)
+    db.refresh(app)
+    app.status, app.follow_up_at = "sent", utcnow() + timedelta(days=7)
+    db.commit()
+    r = client.post(f"/applications/{aid}/replies", headers=auth, json={"subject": "Out of office", "body": "I am out of office"}).json()
+    assert r["reply"]["category"] == "auto"
+    assert r["application"]["status"] == "sent" and r["application"]["follow_up_at"]

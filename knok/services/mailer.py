@@ -211,8 +211,9 @@ def record_reply(db: Session, *, user_id: int, app: Application | None, mode: st
     r = Reply(user_id=user_id, application_id=app.id if app else None, mode=mode, source=source, from_addr=from_addr,
               subject=subject, body=body, category=cat)
     db.add(r)
-    if app is not None and app.status not in ("discarded",):
-        nuevo = application_status_for(cat)
+    nuevo = application_status_for(cat)
+    if app is not None and app.status not in ("discarded",) and nuevo is not None:
+        # Un acuse automático no es una respuesta: no cambia el estado ni quita el recordatorio
         if not (app.status == "interview" and nuevo == "replied"):
             app.status = nuevo
         app.last_status_at, app.follow_up_at = utcnow(), None

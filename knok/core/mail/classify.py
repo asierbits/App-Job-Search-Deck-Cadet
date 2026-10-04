@@ -36,6 +36,8 @@ def classify(subject: str, body: str, extra: dict[str, list[str]] | None = None)
     return "other"
 
 
-def application_status_for(category: str) -> str:
-    """Estado del seguimiento que implica una respuesta."""
+def application_status_for(category: str) -> str | None:
+    """Estado del seguimiento que implica una respuesta. None = no cambia (acuse automático)."""
+    if category == "auto":
+        return None
     return {"interview": "interview", "rejection": "discarded"}.get(category, "replied")

@@ -105,8 +105,23 @@ def patch_reply(rid: int, data: ReplyPatch, profile: m.Profile = Depends(current
         app = db.get(m.Application, r.application_id) if r.application_id else None
         if app:
             from knok.core.mail.classify import application_status_for
-            app.status = application_status_for(data.category)
+            app.status = application_status_for(data.category) or app.status
     return _reply_out(r)
+
+
+@router.get("/replies/{rid}/suggestion", summary="Sugerir respuesta (punto de extensión opcional, DESACTIVADO)")
+def suggest_reply(rid: int, profile: m.Profile = Depends(current_profile), db: Session = Depends(get_db)):
+    from knok.core.extension_points.suggest_reply import active
+    r = db.get(m.Reply, rid)
+    if r is None or r.user_id != profile.user_id:
+        raise not_found("Respuesta")
+    s = active()
+    if s is None:
+        raise ApiError(501, "disabled", "La sugerencia de respuestas está desactivada (knok funciona sin IA)")
+    app = db.get(m.Application, r.application_id) if r.application_id else None
+    texto = s.suggest(reply_subject=r.subject, reply_body=r.body, application=tracking.item(db, app) if app else {},
+                      profile={"first_name": profile.first_name}, language=app.language if app else "es")
+    return {"draft": texto, "provider": s.name, "note": "Es solo un borrador: nada se envía sin tu clic."}
 
 
 @router.get("/applications/{aid}/followup", summary="Borrador del correo de seguimiento (no envía nada)")

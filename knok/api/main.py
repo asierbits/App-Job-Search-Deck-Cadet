@@ -1,7 +1,9 @@
 """Aplicación FastAPI. Documentación interactiva en /docs (Swagger) y /redoc; esquema en /openapi.json."""
+import pathlib
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from sqlalchemy import text
 
 from knok import __version__
@@ -62,6 +64,10 @@ def create_app() -> FastAPI:
                 "<li><a href='/docs'>Documentación interactiva (probar la API)</a></li>"
                 "<li><a href='/redoc'>Referencia</a></li><li><a href='/openapi.json'>openapi.json</a></li>"
                 "<li><a href='/playground'>Banco de pruebas mínimo</a></li></ul>")
+
+    @app.get("/playground", include_in_schema=False)
+    def playground():
+        return FileResponse(pathlib.Path(__file__).with_name("static") / "playground.html")
 
     return app
 
