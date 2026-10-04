@@ -10,6 +10,7 @@
     label { display: block; margin: 4px 0 2px; }
     input[type=text], input[type=url], input[type=password] { width: 100%; box-sizing: border-box; }
     button { margin: 4px 4px 0 0; }
+    .ayuda { font-weight: 400; color: #6b7280; font-size: 11px; }
     .aviso { background: #fef3c7; color: #92400e; padding: 6px; border-radius: 4px; margin: 6px 0; }
     #estado { white-space: pre-wrap; background: #f6f6f6; padding: 6px; min-height: 2em; }
   </style>
@@ -21,7 +22,7 @@
   <fieldset id="conexion">
     <legend>Conexión</legend>
     <label>API de knok <input id="apiBase" type="url" placeholder="http://localhost:8000"></label>
-    <label>Token (créalo en tu web: «Token para la extensión») <input id="token" type="password"></label>
+    <label>Código <span class="ayuda">(déjalo vacío si knok está en este ordenador)</span> <input id="token" type="password" placeholder="vacío = knok de este ordenador"></label>
     <button id="conectar">Conectar</button>
   </fieldset>
 

@@ -49,7 +49,8 @@ async function fillTab(tabId, applicationId) {
   const form = await chrome.tabs.sendMessage(tabId, { cmd: "extract" });
   if (form.blocked) return { blocked: form.blocked };
   const plan = await api("/extension/fill-plan", { method: "POST",
-    body: { url: form.url, application_id: applicationId || null, platform: form.platform, fields: form.fields } });
+    body: { url: form.url, application_id: applicationId || null, platform: form.platform, fields: form.fields,
+            company: form.company || "", title: form.title || "" } });
   const files = await downloadFiles(plan);
   const res = await chrome.tabs.sendMessage(tabId, { cmd: "fill", plan: buildPlan(plan, files),
                                                      applicationId: plan.application_id });

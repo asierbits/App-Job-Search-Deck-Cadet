@@ -117,7 +117,9 @@
       }
       fields.push(f);
     });
-    return { platform: adapter ? adapter.name : "generic", url: location.href, fields, captcha: detectCaptcha() };
+    const job = extractJob();
+    return { platform: adapter ? adapter.name : "generic", url: location.href, fields, captcha: detectCaptcha(),
+             company: job.company, title: job.title };
   }
 
   function detectCaptcha() {
@@ -222,8 +224,12 @@
   function extractJob() {
     const a = adapterFor();
     const base = { url: location.href, title: "", company: "", location: "", apply_url: "", easy_apply: false, description: "" };
-    if (a && a.extractJob) return Object.assign(base, a.extractJob(document, location));
-    base.title = text(document.querySelector("h1")) || document.title;
+    if (a && a.extractJob) Object.assign(base, a.extractJob(document, location));
+    else base.title = text(document.querySelector("h1")) || document.title;
+    if (!base.company) {   // nombre de la empresa que la propia web declara (para «Estimado equipo de …»)
+      const meta = document.querySelector("meta[property='og:site_name'], meta[name='application-name']");
+      base.company = (meta && meta.content || "").trim();
+    }
     return base;
   }
 

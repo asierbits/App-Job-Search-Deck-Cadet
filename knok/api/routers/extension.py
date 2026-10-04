@@ -48,6 +48,8 @@ class FillPlanIn(BaseModel):
     application_id: int | None = None
     platform: str = ""
     fields: list[FormFieldIn] = Field(default=[], max_length=300)
+    company: str = Field(default="", max_length=300, description="Empresa que declara la página (si no hay candidatura)")
+    title: str = Field(default="", max_length=400)
 
 
 class SubmittedIn(BaseModel):
@@ -114,6 +116,13 @@ def fill_plan(data: FillPlanIn, profile: m.Profile = Depends(current_profile), d
     lang = app.language if app else profile.user.locale or "en"
     empresa = {"name": app.company.name} if app and app.company else {}
     puesto = {"title": app.job.title, "country": app.job.country} if app and app.job else None
+    if app is None:   # una web cualquiera: lo que dice la propia página, o el nombre de su dominio
+        from knok.core.domains import domain_of, pretty_name
+        dominio = domain_of(data.url)
+        nombre = data.company.strip() or (pretty_name(dominio) if dominio and "." in dominio else "")
+        empresa = {"name": nombre} if nombre else {}
+        if data.title.strip():
+            puesto = {"title": data.title.strip()[:200], "country": ""}
     carta = render_for(db, profile, "cover_letter", "company", lang, empresa, puesto)
     ref = detect(data.url)
     res = fill_form(db, profile, [f.model_dump() for f in data.fields], lang,

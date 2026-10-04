@@ -1481,6 +1481,7 @@ async function cargarConfig() {
   pintarCuentaConfig();
   mostrarPlantilla();
   pintarAdjuntos();
+  pintarExtension();
 }
 
 function etiquetaVar(v) {
@@ -1936,4 +1937,40 @@ $("#nicho-chip").addEventListener("click", () => {
   mostrar("panel");
   $("#sel-pack").scrollIntoView({ behavior: "smooth", block: "center" });
   $("#sel-pack").focus();
+});
+
+// ------------------------------------------------------------ extensión de Chrome
+
+async function pintarExtension() {
+  try {
+    const toks = await api("/auth/tokens");
+    const ext = toks.filter((t) => t.name === "extensión de Chrome" || /extensi/i.test(t.name));
+    const usado = ext.map((t) => t.last_used_at).filter(Boolean).sort().pop();
+    const el = $("#ext-estado");
+    if (ext.length) {
+      el.innerHTML = `<span class="ext-ok">Conectada</span>${usado ? ` · último uso ${esc(fecha(usado))}` : ""}. Rellena los formularios con tus datos; Enviar lo pulsas tú.`;
+    } else {
+      el.textContent = "Aún sin conectar. Rellena los formularios de candidatura con tus datos y nunca pulsa Enviar: eso lo haces tú.";
+      $("#pasos-extension").open = true;
+    }
+  } catch {}
+}
+
+document.addEventListener("click", async (ev) => {
+  const c = ev.target.closest("[data-copiar]");
+  if (!c) return;
+  try { await navigator.clipboard.writeText(c.dataset.copiar); aviso("Copiado. Pégalo en la barra de direcciones de Chrome.", "bien"); }
+  catch { aviso("Cópialo a mano: " + c.dataset.copiar); }
+});
+
+$("#btn-codigo-ext").addEventListener("click", async () => {
+  try {
+    const t = await api("/auth/tokens", { method: "POST", body: { name: "extensión de Chrome", days: 365 } });
+    $("#codigo-ext").innerHTML = `<div class="codigo-caja">
+      <span>En la extensión, pon <b>API de knok</b>:</span><code>${esc(location.origin)}</code>
+      <span>y en <b>Código</b>:</span><code id="codigo-valor">${esc(t.token)}</code>
+      <span class="secundario">Solo se muestra esta vez. Guárdalo como una contraseña.</span>
+      <div class="fila" style="margin:0"><button type="button" class="btn mini" data-copiar="${esc(t.token)}">Copiar código</button></div></div>`;
+    pintarExtension();
+  } catch (err) { aviso(err.message, "critico"); }
 });

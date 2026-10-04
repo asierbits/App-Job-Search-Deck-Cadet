@@ -134,6 +134,7 @@ def revoke_token(token_id: int, user: User = Depends(current_user), db: Session 
 
 
 LOCAL_EMAIL = "local@knok.local"
+EXTENSION_TOKEN = "extensión de Chrome"
 LOOPBACK = {"localhost", "testclient"}
 
 
@@ -149,7 +150,7 @@ def _from_this_machine(host: str) -> bool:
 
 
 @router.get("/local", response_model=TokenOut, summary="Sesión del panel local (un usuario en tu PC, sin login)")
-def local_session(request: Request, db: Session = Depends(get_db)):
+def local_session(request: Request, client: str = "panel", db: Session = Depends(get_db)):
     """Solo con KNOK_LOCAL_SINGLE_USER=true y solo desde este mismo ordenador."""
     s = get_settings()
     if not s.local_single_user:
@@ -164,4 +165,5 @@ def local_session(request: Request, db: Session = Depends(get_db)):
         db.flush()
         pack = s.local_default_pack if s.local_default_pack in all_packs() else "general"
         db.add(Profile(user_id=user.id, email="", pack=pack, inbound_token=random_id(12)))
-    return issue_token(db, user, name="panel local", days=3650)
+    nombre = EXTENSION_TOKEN if client == "extension" else "panel local"
+    return issue_token(db, user, name=nombre, days=3650)

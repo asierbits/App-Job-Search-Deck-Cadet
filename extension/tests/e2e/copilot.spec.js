@@ -119,3 +119,21 @@ test("Inyectar dos veces no duplica adaptadores", async ({ page }) => {
   for (const f of FILES) await page.addScriptTag({ path: f });
   expect(await page.evaluate(() => window.__knok.adapters.filter((a) => a.name === "greenhouse").length)).toBe(1);
 });
+
+test("Página de prueba de knok: formulario genérico, empresa y puesto de la propia página", async ({ page }) => {
+  const html = fs.readFileSync(path.join(here, "../../../knok/api/static/panel/prueba-extension.html"), "utf8");
+  const url = "http://localhost:8000/ui/prueba-extension.html";
+  await page.route("**/*", (r) => (r.request().url() === url ? r.fulfill({ contentType: "text/html; charset=utf-8", body: html }) : r.abort()));
+  await page.goto(url);
+  for (const f of FILES) await page.addScriptTag({ path: f });
+  const form = await page.evaluate(() => window.__knok.extract());
+  expect(form.platform).toBe("generic");
+  expect(form.company).toBe("Empresa de Ejemplo S.L.");
+  expect(form.title).toBe("Auxiliar administrativo/a (prácticas)");
+  expect(form.fields.map((f) => f.label)).toContain("Correo electrónico");
+  const p = plan(form.fields, { Nombre: "Ana", "Correo electrónico": "ana@example.com" }, { "Currículum (CV)": CV });
+  await page.evaluate((pl) => window.__knok.fill(pl), p);
+  expect(await page.inputValue("#nombre")).toBe("Ana");
+  expect(await page.isChecked("#privacidad")).toBe(false);   // el consentimiento nunca se marca solo
+  expect(await page.locator("#resultado").isHidden()).toBe(true);   // y nunca se envía
+});

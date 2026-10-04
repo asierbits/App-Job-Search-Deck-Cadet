@@ -746,3 +746,10 @@ label.mover select { width: auto; margin: 0; padding: 6px 10px; }
 @media (max-width: 1180px) { .marca h1 { display: none; } }
 @media (max-width: 760px) { .marca h1 { display: block; } .nicho-chip { max-width: 160px; } }
 @media (max-width: 1300px) and (min-width: 761px) { .nicho-chip { display: none; } }
+.cuenta-icono.azul { background: color-mix(in srgb, var(--acento) 14%, transparent); color: var(--acento); }
+.pasos-extension { margin-top: 14px; border-top: 1px solid var(--linea); padding-top: 10px; }
+.pasos-extension summary { cursor: pointer; font-weight: 600; font-size: 13.5px; color: var(--acento); }
+.pasos-extension .pasos { margin-top: 12px; }
+.codigo-caja { display: grid; gap: 6px; margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: var(--superficie-2); font-size: 13px; }
+.codigo-caja code { display: block; padding: 8px 10px; font-size: 12.5px; overflow-wrap: anywhere; user-select: all; }
+.ext-ok::before { content: "● "; color: var(--bien); }

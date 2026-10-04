@@ -65,3 +65,29 @@ def test_captura_de_copia_usa_la_original(client, auth):
         "company": "Naviera Cantábrica de Ferris", "location": "Santander"}).json()
     assert r["original_job_id"] == original["job"]["id"]
     assert r["application"]["job"]["id"] == original["job"]["id"]
+
+
+def test_web_cualquiera_usa_la_empresa_y_el_puesto_de_la_pagina(client, auth):
+    """Sin candidatura en knok (p. ej. la página de prueba): la carta nombra la empresa y el puesto que dice la web."""
+    client.patch("/me/profile", headers=auth, json={"first_name": "Ana", "last_name": "Pérez"})
+    campos = [{"id": "knok-1", "label": "Nombre", "type": "text", "required": True},
+              {"id": "knok-3", "label": "Apellidos", "type": "text", "required": True},
+              {"id": "knok-2", "label": "Carta de presentación", "type": "textarea"}]
+    plan = client.post("/extension/fill-plan", headers=auth, json={
+        "url": "http://localhost:8000/ui/prueba-extension.html", "fields": campos,
+        "company": "Empresa de Ejemplo S.L.", "title": "Auxiliar administrativo/a"}).json()
+    assert plan["application_id"] is None and plan["never_submit"] is True
+    assert "Empresa de Ejemplo S.L." in plan["cover_letter"] and "Auxiliar administrativo/a" in plan["cover_letter"]
+    valores = {f["id"]: f["value"] for f in plan["fields"]}
+    assert valores["knok-1"] == "Ana" and valores["knok-3"] == "Pérez"
+
+
+def test_la_extension_se_conecta_sola_al_knok_local(client, monkeypatch):
+    from knok.settings import get_settings
+    monkeypatch.setenv("KNOK_LOCAL_SINGLE_USER", "true")
+    get_settings.cache_clear()
+    tok = client.get("/auth/local?client=extension").json()["token"]
+    h = {"Authorization": f"Bearer {tok}"}
+    nombres = [t["name"] for t in client.get("/auth/tokens", headers=h).json()]
+    assert "extensión de Chrome" in nombres
+    assert client.get("/extension/config", headers=h).status_code == 200

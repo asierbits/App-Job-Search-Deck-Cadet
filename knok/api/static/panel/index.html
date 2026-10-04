@@ -284,6 +284,32 @@
         </div>
       </div>
 
+      <div class="tarjeta extension-tarjeta">
+        <div class="tarjeta-cuenta" style="margin:0">
+          <div class="cuenta-icono azul" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 4a2 2 0 1 1 4 0v2h4a1 1 0 0 1 1 1v4h-2a2 2 0 1 0 0 4h2v4a1 1 0 0 1-1 1h-4v-2a2 2 0 1 0-4 0v2H6a1 1 0 0 1-1-1v-4h2a2 2 0 1 0 0-4H5V7a1 1 0 0 1 1-1h4z"/></svg></div>
+          <div class="cuenta-texto">
+            <h3>Extensión de Chrome</h3>
+            <p class="secundario" id="ext-estado">Rellena los formularios de candidatura con tus datos. Nunca pulsa Enviar: eso lo haces tú.</p>
+          </div>
+          <div class="fila" style="margin:0">
+            <a class="btn primario" href="/ui/prueba-extension.html" target="_blank" rel="noopener">Abrir página de prueba</a>
+          </div>
+        </div>
+        <details class="pasos-extension" id="pasos-extension">
+          <summary>Cómo instalarla y probarla (5 pasos)</summary>
+          <ol class="pasos">
+            <li><span>En Chrome, escribe en la barra de direcciones <code>chrome://extensions</code> <button type="button" class="btn mini" data-copiar="chrome://extensions">Copiar</button></span></li>
+            <li><span>Activa <b>Modo de desarrollador</b> (arriba a la derecha).</span></li>
+            <li><span>Pulsa <b>Cargar descomprimida</b> y elige la carpeta <code>extension</code> que está dentro de tu carpeta de knok.</span></li>
+            <li><span>Pulsa el icono del puzle de Chrome y fija <b>knok</b>. Ábrela, deja <b>Código</b> vacío y pulsa <b>Conectar</b>.</span></li>
+            <li><span>Abre la <a href="/ui/prueba-extension.html" target="_blank" rel="noopener">página de prueba</a>, pulsa el icono de knok y luego <b>Rellenar esta página</b>.</span></li>
+          </ol>
+          <p class="secundario pequeno">Después, úsala en las ofertas de verdad: en las que van por <b>Formulario</b> (Greenhouse, Lever, Ashby…), ábrelas desde knok y pulsa «Rellenar esta página». Lo dudoso queda marcado en naranja para que lo revises. Si te pide un CAPTCHA, lo resuelves tú.</p>
+          <p class="secundario pequeno" style="margin-bottom:0">¿knok está en otro ordenador o en tu web? <button type="button" class="btn mini" id="btn-codigo-ext">Crear un código para la extensión</button></p>
+          <div id="codigo-ext"></div>
+        </details>
+      </div>
+
       <div class="tarjeta">
         <h3>Modo de funcionamiento</h3>
         <div class="modos">

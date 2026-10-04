@@ -3,12 +3,14 @@
 Rellena solicitudes de empleo con tus datos de knok. **Nunca envía nada**: el botón *Enviar* de cada web lo
 pulsas tú. Solo actúa cuando pulsas un botón del popup; no hay nada corriendo en segundo plano.
 
-## Instalar (modo desarrollador)
+## Instalar y probar (modo desarrollador)
 
-1. Arranca la API de knok (por defecto en `http://localhost:8000`).
-2. En Chrome: `chrome://extensions` → activa **Modo desarrollador** → **Cargar descomprimida** → elige esta carpeta `extension/`.
-3. Crea un token para la extensión: `POST /auth/tokens` con `{"name": "extensión"}` (o desde tu web).
-4. Abre el popup de knok, pega la URL de la API y el token, y pulsa **Conectar**.
+1. Arranca knok en tu ordenador (`iniciar-sin-docker.bat`): el panel queda en `http://localhost:8000`.
+2. En Chrome: `chrome://extensions` → activa **Modo de desarrollador** → **Cargar descomprimida** → elige esta carpeta `extension/`.
+3. Fija knok (icono del puzle) y ábrela. Deja **Código** vacío y pulsa **Conectar**: se enlaza sola con el knok
+   de tu ordenador. (Si knok está en otro sitio, crea un código en el panel: Configuración → Extensión de Chrome.)
+4. Abre la **página de prueba** `http://localhost:8000/ui/prueba-extension.html` (un formulario de una empresa
+   ficticia que no envía nada), pulsa knok → **Rellenar esta página** y mira lo que rellena.
 
 > Si la API no está en `localhost:8000`, la extensión te pedirá permiso para esa dirección al conectar.
 > Para que **tu web** pase el token sin copiar y pegar, cambia `externally_connectable.matches` en

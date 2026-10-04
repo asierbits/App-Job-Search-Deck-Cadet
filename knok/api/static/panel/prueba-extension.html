@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prueba de la extensión · knok</title>
+  <meta property="og:site_name" content="Empresa de Ejemplo S.L.">
+  <style>
+    /* Formulario de candidatura de ejemplo: se parece a los de verdad, pero no envía nada a nadie */
+    :root { --fondo: #f4f5f7; --papel: #ffffff; --tinta: #1d2330; --tinta-2: #5b6474; --linea: #d9dde4; --acento: #0f6e5c;
+            --aviso: #fff4d6; --aviso-borde: #e5b33a; --fuente: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    @media (prefers-color-scheme: dark) { :root { --fondo: #14171c; --papel: #1d2128; --tinta: #eef0f3; --tinta-2: #a9b0bc;
+      --linea: #343a45; --acento: #3fbf9f; --aviso: #3a3220; --aviso-borde: #b98a25; color-scheme: dark; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--fondo); color: var(--tinta); font: 15px/1.5 var(--fuente); padding-inline: 16px; }
+    .prueba { max-width: 720px; margin: 20px auto 0; padding: 12px 16px; border-radius: 10px; background: var(--aviso);
+              border: 1px solid var(--aviso-borde); font-size: 14px; }
+    .prueba ol { margin: 6px 0 0; padding-left: 20px; }
+    main { max-width: 720px; margin: 16px auto 48px; background: var(--papel); border: 1px solid var(--linea); border-radius: 12px;
+           padding: 28px 28px 24px; }
+    .empresa { color: var(--tinta-2); font-size: 14px; margin: 0; }
+    h1 { font-size: 26px; margin: 4px 0 2px; text-wrap: balance; }
+    .lugar { color: var(--tinta-2); margin: 0 0 20px; }
+    h2 { font-size: 17px; margin: 24px 0 10px; padding-top: 16px; border-top: 1px solid var(--linea); }
+    .campo { display: grid; gap: 5px; margin-bottom: 14px; }
+    .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+    label { font-weight: 600; font-size: 14px; }
+    .req { color: #c0392b; }
+    input, select, textarea { font: inherit; color: inherit; background: var(--papel); border: 1px solid var(--linea);
+                              border-radius: 8px; padding: 9px 11px; width: 100%; }
+    textarea { min-height: 120px; resize: vertical; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid var(--acento); outline-offset: -1px; }
+    .casilla { display: flex; gap: 8px; align-items: flex-start; font-weight: 400; }
+    .casilla input { width: auto; margin-top: 4px; }
+    button { font: inherit; font-weight: 700; color: #fff; background: var(--acento); border: 0; border-radius: 8px; padding: 11px 22px; cursor: pointer; }
+    #resultado { margin-top: 14px; padding: 10px 14px; border-radius: 8px; background: var(--aviso); }
+    [data-knok-review] { box-shadow: 0 0 0 2px #f59e0b !important; }
+    @media (max-width: 560px) { .dos { grid-template-columns: 1fr; } main { padding: 20px 16px; } }
+  </style>
+</head>
+<body>
+  <div class="prueba" role="note">
+    <b>Página de prueba de knok.</b> Este formulario es de una empresa ficticia y <b>no envía nada a nadie</b>.
+    <ol>
+      <li>Pulsa el icono de knok en Chrome y luego <b>«Rellenar esta página»</b>.</li>
+      <li>Mira lo que ha rellenado: lo marcado en naranja es para que lo revises tú.</li>
+      <li>El botón «Enviar candidatura» lo pulsas tú (aquí solo muestra un mensaje).</li>
+    </ol>
+  </div>
+
+  <main>
+    <p class="empresa">Empresa de Ejemplo S.L. · Recursos Humanos</p>
+    <h1>Auxiliar administrativo/a (prácticas)</h1>
+    <p class="lugar">Bilbao, España · Jornada completa</p>
+
+    <form id="candidatura" autocomplete="off">
+      <h2 style="border-top:0;padding-top:0;margin-top:0">Tus datos</h2>
+      <div class="dos">
+        <div class="campo"><label for="nombre">Nombre <span class="req">*</span></label><input id="nombre" name="nombre" required></div>
+        <div class="campo"><label for="apellidos">Apellidos <span class="req">*</span></label><input id="apellidos" name="apellidos" required></div>
+      </div>
+      <div class="dos">
+        <div class="campo"><label for="email">Correo electrónico <span class="req">*</span></label><input id="email" name="email" type="email" required></div>
+        <div class="campo"><label for="telefono">Teléfono</label><input id="telefono" name="telefono" type="tel"></div>
+      </div>
+      <div class="dos">
+        <div class="campo"><label for="ciudad">Ciudad</label><input id="ciudad" name="ciudad"></div>
+        <div class="campo"><label for="linkedin">Perfil de LinkedIn</label><input id="linkedin" name="linkedin" type="url"></div>
+      </div>
+      <div class="campo"><label for="cv">Currículum (CV) <span class="req">*</span></label><input id="cv" name="cv" type="file" accept=".pdf,.doc,.docx" required></div>
+
+      <h2>Preguntas</h2>
+      <div class="campo"><label for="permiso">¿Tienes permiso de trabajo en la Unión Europea? <span class="req">*</span></label>
+        <select id="permiso" name="permiso" required><option value="">Selecciona…</option><option value="si">Sí</option><option value="no">No</option></select></div>
+      <div class="campo"><label for="incorporacion">¿Cuándo podrías incorporarte?</label><input id="incorporacion" name="incorporacion"></div>
+      <div class="campo"><label for="carta">Carta de presentación</label><textarea id="carta" name="carta"></textarea></div>
+      <div class="campo"><label for="motivo">¿Por qué te interesa trabajar con nosotros?</label><textarea id="motivo" name="motivo"></textarea></div>
+      <div class="campo"><label class="casilla" for="privacidad"><input type="checkbox" id="privacidad" name="privacidad" required>
+        <span>He leído y acepto la política de privacidad <span class="req">*</span></span></label></div>
+
+      <button type="submit">Enviar candidatura</button>
+      <div id="resultado" role="status" hidden></div>
+    </form>
+  </main>
+  <script>
+    document.getElementById("candidatura").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var r = document.getElementById("resultado");
+      r.hidden = false;
+      r.textContent = "Esto es una prueba: no se ha enviado nada. En una web real, este clic es el que haces tú.";
+    });
+  </script>
+</body>
+</html>

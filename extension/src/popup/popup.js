@@ -31,7 +31,19 @@ $("conectar").onclick = async () => {
     const ok = await chrome.permissions.request({ origins: [base + "/*"] });
     if (!ok) { $("estado").textContent = "Sin permiso para " + base; return; }
   }
-  const r = await send({ type: "knok:connect", apiBase: base, token: $("token").value.trim() });
+  let token = $("token").value.trim();
+  if (!token) {
+    // knok en este ordenador (panel local): la extensión pide su propio código sin copiar nada
+    try {
+      const r = await fetch(base + "/auth/local?client=extension");
+      if (!r.ok) throw new Error(r.status === 404 ? "este knok no es el de tu ordenador: pega el código de Configuración → Extensión de Chrome" : "error " + r.status);
+      token = (await r.json()).token;
+    } catch (err) {
+      $("estado").textContent = "No se pudo conectar con " + base + ": " + (err.message.includes("fetch") ? "¿está abierto knok (iniciar.bat)?" : err.message);
+      return;
+    }
+  }
+  const r = await send({ type: "knok:connect", apiBase: base, token });
   $("estado").textContent = r.error ? "Error: " + r.error : "Conectado como " + r.me.user.email + " (modo " + r.me.profile.mode + ")";
 };
 $("iniciar").onclick = async () => {
