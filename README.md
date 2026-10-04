@@ -1,8 +1,9 @@
 # knok · motor
 
 El motor de knok **busca ofertas y empresas, decide cómo aplicar a cada una, rellena las solicitudes y prepara
-los correos** para que el usuario los revise y los envíe. Es solo lógica + API REST: tu web (Next.js) se
-conecta a esta API. Incluye una extensión de Chrome (modo copiloto) que habla con la misma API.
+los correos** para que el usuario los revise y los envíe. Tiene una API REST para tu web (Next.js), un
+**panel** listo para usar en tu ordenador (el diseño de la primera versión) y una extensión de Chrome
+(modo copiloto) que habla con la misma API.
 
 - Plan y decisiones: [docs/PLAN.md](docs/PLAN.md)
 - Conectar tu web: [docs/INTEGRACION_WEB.md](docs/INTEGRACION_WEB.md)
@@ -16,7 +17,7 @@ conecta a esta API. Incluye una extensión de Chrome (modo copiloto) que habla c
 | Sin IA | Reglas fijas: palabras clave por idioma, patrones y puntuaciones explicables. El punto de extensión "sugerir respuesta" existe pero está desactivado (`/replies/{id}/suggestion` → 501). |
 | Coste casi cero | Postgres como base de datos **y** como cola (sin Redis); APIs gratuitas; cachés compartidas entre usuarios; el relleno de formularios ocurre en el navegador del usuario. |
 | No scrapear Google desde el servidor | El servidor solo lee APIs públicas, Wikidata, OpenStreetMap, directorios y las webs de las empresas (respetando `robots.txt`, sin fingir ser un navegador). |
-| Nada sale sin un clic | Las candidaturas se **preparan**; solo `POST /batches/{id}/send` o `POST /applications/{id}/send` con la lista que elige el usuario las envía. La extensión nunca pulsa "Enviar". |
+| Nada sale sin un clic | Las candidaturas se **preparan**; solo `POST /batches/{id}/send`, `POST /applications/{id}/send` o `POST /panel/send` con la lista que elige el usuario las envía. La extensión nunca pulsa "Enviar". |
 | Base común solo con buzones genéricos | Lista blanca de roles (info@, rrhh@, jobs@… + los del pack). Un buzón personal (nombre.apellido@) se descarta antes de guardarse y no se puede usar ni a mano. |
 | Global | Plantillas y textos por idioma (es, en), idioma elegido por país; diccionario de preguntas en es/en/fr/de/it/pt. |
 | Multi-nicho | El núcleo no sabe de ningún nicho (un test lo comprueba). Lo específico está en `knok/packs/<nicho>/`. |
@@ -28,8 +29,22 @@ conecta a esta API. Incluye una extensión de Chrome (modo copiloto) que habla c
 1. Ten instalado **Python 3.11 o más reciente** (al instalarlo en Windows, marca «Add python.exe to PATH»).
 2. Doble clic en **`iniciar-sin-docker.bat`** (Windows) o ejecuta `./iniciar-sin-docker.sh` (Mac/Linux).
    La primera vez prepara todo (unos minutos).
-3. Se abre <http://localhost:8000/playground>. Arranca en **modo de prueba sin red** (datos de ejemplo, no sale
-   ningún correo). Para pararlo, cierra la ventana.
+3. Se abre el panel en <http://localhost:8000/>. Para pararlo, cierra la ventana.
+
+### El panel
+
+| Pestaña | Qué haces |
+|---|---|
+| **Panel** | Rellena **¿Qué buscas?** (nicho, palabras clave, países, ciudades, dónde buscar, cuántas webs rastrear) y pulsa **Iniciar búsqueda**. Resumen, embudo, actividad de 14 días, últimas respuestas y registro. |
+| **Empresas y ofertas** | La búsqueda **en directo**: fase, webs que se están leyendo ahora y lo que se encontró en cada una (buzón genérico, página de empleo, menciones, avisos). Tabla con filtros, «Ver» (ficha, correo editable o campos del formulario), selección, «Seleccionar recomendadas», **Enviar** y Detener. |
+| **Respuestas** | Bandeja con la clasificación automática (entrevista, piden info, rechazo, automática), corregible. |
+| **Configuración** | Gmail, modo (Simulación / Prueba real / Real), **tu mensaje** por idioma y destinatario con variables y vista previa, archivos adjuntos por idioma, perfil, límites y respuestas para formularios. |
+
+Empieza en **Simulación**: busca de verdad pero no envía nada. **Gmail**: en el panel local se conecta como
+en la primera versión, con una **contraseña de aplicación** (verificación en dos pasos → contraseña de
+aplicación → pegar las 16 letras); así knok envía por SMTP y lee las respuestas por IMAP (solo las de las
+empresas a las que escribiste, sin marcarlas como leídas). Queda cifrada en tu ordenador. Para Adzuna e
+InfoJobs pon sus claves gratuitas en `.env`; sin ellas se busca en las demás fuentes.
 
 Usa una base de datos en un archivo (`knok.db`, SQLite) y el worker va dentro de la API: un solo proceso,
 ideal para tu ordenador. Para un servidor con varios usuarios, usa Docker con Postgres.
@@ -46,8 +61,8 @@ cp .env.example .env          # y ajusta lo que quieras
 docker compose up --build     # Postgres + API (aplica migraciones) + worker
 ```
 
-API en <http://localhost:8000> · documentación interactiva en <http://localhost:8000/docs> ·
-banco de pruebas mínimo en <http://localhost:8000/playground>.
+Panel en <http://localhost:8000> · documentación interactiva en <http://localhost:8000/docs> ·
+banco de pruebas mínimo de la API en <http://localhost:8000/playground>.
 
 ### Opción B · Python directamente
 
@@ -81,8 +96,12 @@ Todas en [.env.example](.env.example) con explicación. Las importantes:
 | `KNOK_INFOJOBS_CLIENT_ID` / `_SECRET` | InfoJobs (búsqueda y candidatura por API) |
 | `KNOK_INBOUND_SECRET`, `KNOK_INBOUND_DOMAIN` | Reenvío de respuestas a knok (opcional) |
 | `KNOK_OFFLINE_SOURCES` | `true` = datos de ejemplo, sin red |
+| `KNOK_LOCAL_SINGLE_USER` | `true` = panel sin login para un único usuario en su ordenador (lo ponen los lanzadores). **Nunca en un servidor** |
+| `KNOK_EMBEDDED_WORKER` | `true` = el worker va dentro de la API (un solo proceso, uso local) |
 
-### Gmail (OAuth, solo envío)
+### Gmail (OAuth, solo envío) — para la web con varios usuarios
+
+En el panel local no hace falta: basta la contraseña de aplicación (ver «El panel»).
 
 1. En Google Cloud Console crea un proyecto, activa la **Gmail API** y una **pantalla de consentimiento OAuth**
    con el scope `https://www.googleapis.com/auth/gmail.send` (más `openid` y `email`).
@@ -105,6 +124,12 @@ GET  /batches/{id}                           → revisión: lo rellenado, lo ded
 PATCH /applications/{id}                     → correcciones (lo nuevo se recuerda en tu banco)
 POST /batches/{id}/send {application_ids}    → EL CLIC: se envían solo las seleccionadas
 GET  /tracking · /tracking/summary · /tracking/export.csv · POST /applications/{id}/replies
+
+Atajos del panel (también los puede usar tu web):
+GET  /panel/state                            → todo lo del panel: perfil, Gmail, búsqueda en curso y su progreso, resumen
+GET  /panel/board                            → tabla: resultados de la búsqueda + candidaturas, con buzón, menciones y avisos
+POST /panel/send {result_ids, application_ids} → EL CLIC desde la tabla (prepara lo que falte y envía lo marcado)
+POST /searches/{id}/cancel                   → Detener (lo ya rastreado se conserva)
 ```
 
 La referencia completa, con ejemplos y esquemas, está en `/docs` (OpenAPI en `/openapi.json`).

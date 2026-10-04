@@ -101,16 +101,15 @@ def _tomorrow_morning() -> datetime:
 # ------------------------------------------------------------------------------------- encolar (tras el clic)
 
 def default_attachments(db: Session, user_id: int, language: str) -> list[int]:
-    """El CV por defecto del idioma (o uno sin idioma)."""
-    docs = list(db.scalars(select(Document).where(Document.user_id == user_id, Document.kind == "cv")
-                           .order_by(Document.is_default.desc(), Document.id)))
-    for d in docs:
-        if d.language == language:
-            return [d.id]
-    for d in docs:
-        if d.language == "":
-            return [d.id]
-    return [docs[0].id] if docs else []
+    """Los archivos del idioma del correo más los que valen para todos (el CV primero).
+    Si no hay ninguno de esos, el CV que haya."""
+    docs = list(db.scalars(select(Document).where(Document.user_id == user_id)
+                           .order_by((Document.kind != "cv"), Document.is_default.desc(), Document.id)))
+    elegidos = [d.id for d in docs if d.language in (language, "")]
+    if elegidos:
+        return elegidos
+    cvs = [d.id for d in docs if d.kind == "cv"]
+    return cvs[:1]
 
 
 def queue_application_emails(db: Session, profile: Profile, apps: list[Application], kind: str = "application") -> list[Email]:

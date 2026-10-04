@@ -21,7 +21,7 @@ def test_sesion_local_no_desde_fuera(db_engine, monkeypatch):
     from knok.settings import get_settings
     monkeypatch.setenv("KNOK_LOCAL_SINGLE_USER", "true")
     get_settings.cache_clear()
-    fuera = TestClient(create_app(), client=("203.0.113.9", 5000))
+    fuera = TestClient(create_app(), client=("8.8.8.8", 5000))
     assert fuera.get("/auth/local").status_code == 403
 
 
@@ -77,3 +77,15 @@ def test_no_se_toca_lo_de_otro(client, auth):
     campo = {"application_ids": [fila["application_id"]]} if fila["application_id"] else {"result_ids": [fila["result_id"]]}
     assert client.post("/panel/send", headers=otro, json=campo).status_code == 404
     assert client.post("/panel/send", headers=auth, json={}).status_code == 422
+
+
+def test_la_tabla_no_se_vacia_si_la_nueva_busqueda_no_tiene_resultados(client, auth):
+    preparar(client, auth)
+    antes = client.get("/panel/board", headers=auth).json()
+    from knok.db import session as dbs
+    from knok.db.models import Search
+    uid = client.get("/me", headers=auth).json()["user"]["id"]
+    with dbs.session_scope() as s:   # una búsqueda detenida antes de empezar
+        s.add(Search(user_id=uid, params={}, status="cancelled"))
+    despues = client.get("/panel/board", headers=auth).json()
+    assert despues["search"]["id"] == antes["search"]["id"] and len(despues["items"]) == len(antes["items"])

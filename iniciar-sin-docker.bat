@@ -35,24 +35,29 @@ if errorlevel 1 (
   copy /y pyproject.toml ".venv\pyproject.instalado" >nul
 )
 
-rem --- 3. Configuracion local (modo de prueba sin red la primera vez)
+rem --- 3. Configuracion local: un solo usuario (tu), busquedas de verdad
 if not exist .env (
-  > .env echo KNOK_OFFLINE_SOURCES=true
-  >> .env echo KNOK_SECRET_KEY=local-%RANDOM%%RANDOM%%RANDOM%%RANDOM%
-  echo Creado .env en modo de prueba sin red.
+  > .env echo KNOK_SECRET_KEY=local-%RANDOM%%RANDOM%%RANDOM%%RANDOM%
+  echo Creado .env
+)
+rem Las versiones anteriores creaban .env "sin red" (solo datos de ejemplo): se quita esa linea
+findstr /b /c:"KNOK_OFFLINE_SOURCES=" .env >nul && (
+  findstr /v /b /c:"KNOK_OFFLINE_SOURCES=" .env > .env.tmp
+  move /y .env.tmp .env >nul
 )
 findstr /b /c:"KNOK_DATABASE_URL=" .env >nul || >> .env echo KNOK_DATABASE_URL=sqlite:///./knok.db
 findstr /b /c:"KNOK_EMBEDDED_WORKER=" .env >nul || >> .env echo KNOK_EMBEDDED_WORKER=true
+findstr /b /c:"KNOK_LOCAL_SINGLE_USER=" .env >nul || >> .env echo KNOK_LOCAL_SINGLE_USER=true
 
 rem --- 4. Base de datos al dia y arranque
 "%VPY%" -m alembic upgrade head
 if errorlevel 1 goto error
 
 echo.
-echo  knok en marcha en http://localhost:8000/playground
+echo  knok en marcha en http://localhost:8000/
 echo  Para pararlo, cierra esta ventana (o pulsa Ctrl+C).
 echo.
-start "" cmd /c "timeout /t 5 >nul & start "" http://localhost:8000/playground"
+start "" cmd /c "timeout /t 5 >nul & start "" http://localhost:8000/"
 "%VPY%" -m uvicorn knok.api.main:app --host 127.0.0.1 --port 8000
 goto fin
 

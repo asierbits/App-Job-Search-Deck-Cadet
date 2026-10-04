@@ -3,7 +3,8 @@ import pathlib
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from knok import __version__
@@ -18,7 +19,8 @@ prepara correos para que el usuario los revise y envíe.
 **Autenticación**: `Authorization: Bearer knk_…` (obtén el token con `POST /auth/register` o `POST /auth/login`).
 
 **Principio**: nada se envía sin un clic del usuario. Los envíos solo ocurren con
-`POST /batches/{id}/send` o `POST /applications/{id}/send`, con la lista explícita de candidaturas.
+`POST /batches/{id}/send`, `POST /applications/{id}/send` o `POST /panel/send`, con la lista explícita
+de lo que el usuario ha marcado. El panel (diseño de la primera versión) está en `/`.
 """
 
 TAGS = [
@@ -68,14 +70,13 @@ def create_app() -> FastAPI:
             c.execute(text("SELECT 1"))
         return {"ok": True, "version": __version__}
 
-    @app.get("/", include_in_schema=False, response_class=HTMLResponse)
+    panel = pathlib.Path(__file__).with_name("static") / "panel"
+    app.mount("/ui", StaticFiles(directory=panel), name="ui")
+
+    @app.get("/", include_in_schema=False)
     def inicio():
-        return ("<!doctype html><meta charset=utf-8><title>knok API</title>"
-                "<body style='font-family:system-ui;max-width:40rem;margin:3rem auto'>"
-                "<h1>knok API</h1><p>Motor en marcha.</p><ul>"
-                "<li><a href='/docs'>Documentación interactiva (probar la API)</a></li>"
-                "<li><a href='/redoc'>Referencia</a></li><li><a href='/openapi.json'>openapi.json</a></li>"
-                "<li><a href='/playground'>Banco de pruebas mínimo</a></li></ul>")
+        """El panel (diseño de la primera versión). La API está documentada en /docs."""
+        return FileResponse(panel / "index.html", headers={"Cache-Control": "no-cache"})
 
     @app.get("/playground", include_in_schema=False)
     def playground():

@@ -71,9 +71,11 @@ def state(user: m.User = Depends(current_user), profile: m.Profile = Depends(cur
                                    "method": ("app_password" if g.scopes == APP_PASSWORD else "oauth") if g else "",
                                    "oauth_configured": bool(s.google_client_id),
                                    "app_password_allowed": s.local_single_user,
-                                   "inbox_checked_at": inbox.last_check(user.id)}},
+                                   "inbox_checked_at": inbox.last_check(g)}},
         "sending_problems": sending_problems(db, profile),
         "offline": s.offline_sources,
+        "sources_ready": {"adzuna": bool(s.adzuna_app_id and s.adzuna_app_key),
+                          "infojobs": bool(s.infojobs_client_id and s.infojobs_client_secret)},
         "search": _search_out(_latest_search(db, user.id)),
         "summary": tracking.summary(db, profile),
         "replies": [_reply_out(db, r) for r in respuestas],
@@ -105,13 +107,31 @@ def _row_from(c: m.Company | None, j: m.Job | None, emails: list[str], pack_slug
     }
 
 
+def _board_search(db: Session, user_id: int) -> m.Search | None:
+    """La última búsqueda con resultados (si la nueva aún no tiene ninguno, o se detuvo antes de empezar,
+    la tabla sigue enseñando los de la anterior)."""
+    recientes = list(db.scalars(select(m.Search).where(m.Search.user_id == user_id)
+                                .order_by(m.Search.id.desc()).limit(20)))
+    con = next((s for s in recientes if db.scalar(select(m.SearchResult.id)
+                                                  .where(m.SearchResult.search_id == s.id).limit(1))), None)
+    return con or (recientes[0] if recientes else None)
+
+
+def _key(job_id: int | None, company_id: int | None) -> str:
+    """Clave estable de una fila: la misma antes y después de preparar la candidatura."""
+    return f"j{job_id}" if job_id else f"c{company_id}"
+
+
 @router.get("/board", summary="Tabla de empresas y ofertas: resultados de la búsqueda + candidaturas")
 def board(search_id: int | None = None, user: m.User = Depends(current_user),
           profile: m.Profile = Depends(current_profile), db: Session = Depends(get_db)):
     pack = pack_or_default(profile.pack)
-    search = db.get(m.Search, search_id) if search_id else _latest_search(db, user.id)
-    if search is not None and search.user_id != user.id:
-        raise not_found("Búsqueda")
+    if search_id:
+        search = db.get(m.Search, search_id)
+        if search is None or search.user_id != user.id:
+            raise not_found("Búsqueda")
+    else:
+        search = _board_search(db, user.id)
     resultados = list(db.scalars(select(m.SearchResult).where(m.SearchResult.search_id == search.id)
                                  .order_by(m.SearchResult.score.desc(), m.SearchResult.id).limit(BOARD_MAX))) \
         if search else []
@@ -145,7 +165,7 @@ def board(search_id: int | None = None, user: m.User = Depends(current_user),
     filas, vistas = [], {}
     for a in apps:
         c, j = empresas.get(a.company_id), ofertas.get(a.job_id)
-        fila = {**_row_from(c, j, correos(c), pack.slug), "key": f"a{a.id}", "application_id": a.id,
+        fila = {**_row_from(c, j, correos(c), pack.slug), "key": _key(a.job_id, a.company_id), "application_id": a.id,
                 "result_id": None, "route": a.route, "platform": a.platform, "score": None,
                 "reasons": [a.route_reason] if a.route_reason else [], "status": a.status,
                 "email": a.contact_email or (correos(c)[:1] or [""])[0], "apply_url": a.apply_url,
@@ -161,7 +181,7 @@ def board(search_id: int | None = None, user: m.User = Depends(current_user),
             vistas[clave]["reasons"] = r.reasons
             continue
         c, j = empresas.get(r.company_id), ofertas.get(r.job_id)
-        filas.append({**_row_from(c, j, correos(c), pack.slug), "key": f"r{r.id}", "application_id": None,
+        filas.append({**_row_from(c, j, correos(c), pack.slug), "key": _key(r.job_id, r.company_id), "application_id": None,
                       "result_id": r.id, "route": r.route, "platform": r.platform, "score": r.score,
                       "reasons": r.reasons, "status": "new", "apply_url": (j.apply_url or j.url) if j else
                       (c.careers_url if c else ""), "sent_at": None, "reply": None, "follow_up_due": False})
@@ -242,4 +262,4 @@ def check_inbox(profile: m.Profile = Depends(current_profile), db: Session = Dep
         nuevas = inbox.check_user(db, profile, g)
     except MailboxError as ex:
         raise ApiError(502, "mailbox_error", str(ex))
-    return {"new": nuevas, "checked_at": inbox.last_check(profile.user_id)}
+    return {"new": nuevas, "checked_at": inbox.last_check(g)}

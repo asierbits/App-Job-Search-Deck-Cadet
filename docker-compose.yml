@@ -20,7 +20,7 @@ services:
       KNOK_DATABASE_URL: postgresql+psycopg://postgres:knok@db:5432/knok
       KNOK_STORAGE_DIR: /data
     volumes: [storage:/data]
-    ports: ["8000:8000"]
+    ports: ["127.0.0.1:8000:8000"]   # solo desde este ordenador
     depends_on:
       db: {condition: service_healthy}
 

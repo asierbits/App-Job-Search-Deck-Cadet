@@ -4,7 +4,7 @@ Solo se descargan completos los correos que responden a uno nuestro o que vienen
 que has escrito; el resto del buzón no se toca (y nada se marca como leído).
 """
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -19,7 +19,6 @@ from knok.services.mailer import APP_PASSWORD
 from knok.services.tracking import forwarding_domains, record_inbound
 from knok.worker.queue import task
 
-LAST_CHECK: dict[int, datetime] = {}   # user_id → última revisión (lo enseña el panel)
 LOOKBACK = timedelta(days=45)
 
 
@@ -33,7 +32,7 @@ def check_user(db: Session, profile: Profile, acc: OAuthAccount) -> int:
     uid = profile.user_id
     nuestros = set(db.scalars(select(Email.message_id).where(Email.user_id == uid, Email.mode != "simulation")))
     if not nuestros:
-        LAST_CHECK[uid] = utcnow()
+        acc.expires_at = utcnow()
         return 0
     primero = db.scalar(select(func.min(Email.sent_at)).where(Email.user_id == uid, Email.mode != "simulation",
                                                               Email.status == "sent")) or utcnow()
@@ -63,7 +62,7 @@ def check_user(db: Session, profile: Profile, acc: OAuthAccount) -> int:
         res = record_inbound(db, uid, inbound, "imap")
         if res.get("reply_id"):
             nuevas += 1
-    LAST_CHECK[uid] = utcnow()
+    acc.expires_at = utcnow()   # en las cuentas con contraseña de aplicación: última revisión del buzón
     return nuevas
 
 
@@ -90,6 +89,7 @@ def check_inbox_task(db: Session, payload: dict) -> dict:
     return check_all(db)
 
 
-def last_check(user_id: int) -> str | None:
-    t = LAST_CHECK.get(user_id)
-    return t.astimezone(timezone.utc).isoformat() if t else None
+def last_check(acc: OAuthAccount | None) -> str | None:
+    if acc is None or acc.scopes != APP_PASSWORD or acc.expires_at is None:
+        return None
+    return acc.expires_at.astimezone(timezone.utc).isoformat()

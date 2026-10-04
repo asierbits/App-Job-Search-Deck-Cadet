@@ -18,11 +18,15 @@ if errorlevel 1 (
 )
 
 if not exist .env (
-  rem Primera vez: modo de prueba sin red ni claves (datos de ejemplo, no sale ningun correo)
-  > .env echo KNOK_OFFLINE_SOURCES=true
-  >> .env echo KNOK_SECRET_KEY=local-%RANDOM%%RANDOM%%RANDOM%%RANDOM%
-  echo Creado .env en modo de prueba sin red.
+  > .env echo KNOK_SECRET_KEY=local-%RANDOM%%RANDOM%%RANDOM%%RANDOM%
+  echo Creado .env
 )
+rem Las versiones anteriores creaban .env "sin red" (solo datos de ejemplo): se quita esa linea
+findstr /b /c:"KNOK_OFFLINE_SOURCES=" .env >nul && (
+  findstr /v /b /c:"KNOK_OFFLINE_SOURCES=" .env > .env.tmp
+  move /y .env.tmp .env >nul
+)
+findstr /b /c:"KNOK_LOCAL_SINGLE_USER=" .env >nul || >> .env echo KNOK_LOCAL_SINGLE_USER=true
 
 echo Arrancando knok (la primera vez tarda unos minutos)...
 docker compose up -d --build
@@ -45,6 +49,6 @@ timeout /t 2 >nul
 powershell -NoProfile -Command "try { $r = Invoke-WebRequest -UseBasicParsing http://localhost:8000/health; exit 0 } catch { exit 1 }" >nul 2>nul
 if errorlevel 1 goto esperar
 
-echo Listo. Abriendo http://localhost:8000/playground
-start "" http://localhost:8000/playground
+echo Listo. Abriendo http://localhost:8000/
+start "" http://localhost:8000/
 echo Para pararlo, ejecuta detener.bat

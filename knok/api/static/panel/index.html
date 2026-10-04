@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>knok</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=DM+Sans:opsz,wght@9..40,400..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/ui/style.css">
+</head>
+<body>
+<header class="barra">
+  <div class="marca">
+    <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 6V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1"/><rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 12h18"/></svg></span>
+    <h1>knok</h1>
+    <span class="nicho-chip" id="nicho-chip" title="Tu nicho (cámbialo en «Qué buscas»)"></span>
+  </div>
+  <nav class="pestanas" role="tablist">
+    <button class="pestana activa" data-vista="panel">Panel</button>
+    <button class="pestana" data-vista="empresas">Empresas y ofertas <span id="contador-seleccionadas" class="contador" hidden></span></button>
+    <button class="pestana" data-vista="respuestas">Respuestas <span id="contador-no-leidas" class="contador" hidden></span></button>
+    <button class="pestana" data-vista="config">Configuración</button>
+  </nav>
+  <div class="acciones">
+    <span id="insignia-modo" class="insignia">…</span>
+    <button id="chip-cuenta" class="chip-cuenta" type="button"></button>
+  </div>
+</header>
+
+<main>
+  <div id="avisos"></div>
+
+  <!-- ============ PANEL ============ -->
+  <section id="vista-panel" class="vista">
+    <div class="hero">
+      <div class="hero-texto">
+        <p class="sobretitulo" id="hoy"></p>
+        <h2 class="saludo" id="saludo">Hola</h2>
+        <p class="resumen" id="resumen">Cargando…</p>
+      </div>
+      <div class="hero-accion">
+        <button id="btn-iniciar" class="btn primario grande" type="submit" form="form-busqueda"><svg viewBox="0 0 24 24" class="ico"><path d="M7 4.5v15l12-7.5z"/></svg> 1 · Iniciar búsqueda</button>
+        <button id="btn-detener" class="btn grande" hidden>■ Detener</button>
+        <button id="btn-ir-revisar" class="btn grande" data-ir="empresas" hidden>2 · Revisar y enviar →</button>
+        <p class="pequeno secundario" id="hero-detalle"></p>
+      </div>
+      <div class="hero-progreso" id="hero-progreso" hidden>
+        <div class="fila-entre"><b id="fase">…</b><span class="secundario" id="fase-num"></span></div>
+        <div class="pista"><div class="pista-relleno" id="barra-progreso"></div></div>
+      </div>
+    </div>
+
+    <!-- Qué buscas: los parámetros de la búsqueda -->
+    <form class="tarjeta tarjeta-busqueda" id="form-busqueda" autocomplete="off">
+      <div class="fila-entre cabecera-busqueda">
+        <div><h3 style="margin:0">¿Qué buscas?</h3>
+          <p class="secundario pequeno" style="margin:2px 0 0">Rellena lo que buscas y pulsa <b>Iniciar búsqueda</b>: leeré las fuentes, rastrearé las webs de las empresas y te las enseñaré en directo. <b>No se envía nada</b> hasta que tú lo marques.</p></div>
+        <button type="button" class="btn enlace" id="btn-busqueda-defecto">Restablecer</button>
+      </div>
+      <div class="busqueda-cols">
+        <div>
+          <label>Nicho
+            <select name="pack" id="sel-pack"></select>
+            <span class="ayuda" id="pack-descripcion"></span></label>
+          <label>Palabras clave (opcional, separadas por comas)
+            <input name="keywords" id="inp-keywords" placeholder="p. ej. deck cadet, alumno de puente, trainee">
+            <span class="ayuda">Si las pones, cada oferta debe contener alguna. A las empresas sin oferta no se les aplica.</span></label>
+          <div class="etiqueta-cuerpo">Países
+            <div class="chips-paises" id="chips-paises"></div>
+            <div class="fila" style="margin-top:6px">
+              <select id="sel-anadir-pais" style="width:auto"><option value="">+ Añadir país…</option></select>
+              <button type="button" class="btn mini" id="btn-paises-pack">Los del nicho</button>
+              <button type="button" class="btn mini" id="btn-paises-ninguno">Quitar todos</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label>Ciudades (opcional, una por línea)
+            <textarea name="cities" rows="3" placeholder="Bilbao&#10;Hamburgo&#10;Róterdam"></textarea>
+            <span class="ayuda">Además de las fuentes del nicho, busca empresas en OpenStreetMap alrededor de cada ciudad y da más puntos a las de allí.</span></label>
+          <div class="dos-cols">
+            <label>Radio (km)<input name="radius_km" type="number" min="1" max="100" value="10"></label>
+            <label>Máx. webs a rastrear<input name="max_webs" type="number" min="0" max="2000" value="200"></label>
+          </div>
+          <fieldset><legend>Dónde buscar</legend>
+            <label class="casilla bloque"><input type="checkbox" name="sources" value="companies"><span>Empresas del nicho (directorios, Wikidata, OpenStreetMap) <b>y rastrear sus webs</b></span></label>
+            <label class="casilla bloque"><input type="checkbox" name="sources" value="ats"><span>Ofertas en las webs de empleo de empresas (Greenhouse, Lever, Ashby)</span></label>
+            <label class="casilla bloque"><input type="checkbox" name="sources" value="adzuna"><span>Adzuna <span class="pequeno secundario" data-falta="adzuna"></span></span></label>
+            <label class="casilla bloque"><input type="checkbox" name="sources" value="infojobs"><span>InfoJobs <span class="pequeno secundario" data-falta="infojobs"></span></span></label>
+            <label class="casilla bloque"><input type="checkbox" name="sources" value="sample"><span>Datos de ejemplo (empresas ficticias, para probar)</span></label>
+          </fieldset>
+          <label class="casilla bloque"><input type="checkbox" name="include_companies" checked><span>Incluir empresas sin oferta publicada (escribirles a su buzón genérico)</span></label>
+        </div>
+      </div>
+    </form>
+
+    <div class="embudo" id="embudo"></div>
+
+    <div class="rejilla-graficos">
+      <figure class="tarjeta">
+        <figcaption>
+          <div><h3>Actividad de los últimos 14 días</h3><p class="secundario pequeno">Candidaturas enviadas y respuestas recibidas por día</p></div>
+          <div class="leyenda">
+            <span><i class="muestra s1"></i>Enviadas</span>
+            <span><i class="muestra s2"></i>Respuestas</span>
+          </div>
+        </figcaption>
+        <div class="grafico" id="grafico-diario"></div>
+        <details class="ver-tabla"><summary>Ver como tabla</summary><div id="tabla-diario"></div></details>
+      </figure>
+      <figure class="tarjeta">
+        <figcaption><div><h3>Qué te han contestado</h3><p class="secundario pequeno">Clasificado automáticamente (sin IA)</p></div></figcaption>
+        <div id="categorias" class="barras"></div>
+      </figure>
+    </div>
+
+    <div class="rejilla-2">
+      <div class="tarjeta">
+        <div class="fila-entre"><h3>Últimas respuestas</h3><button class="btn enlace" data-ir="respuestas">Ver todas →</button></div>
+        <div class="revision"><span class="revision-texto"></span><button type="button" class="btn mini" data-revisar>↻ Revisar correo ahora</button></div>
+        <ul id="ultimas-respuestas" class="lista-personas"></ul>
+      </div>
+      <div class="tarjeta">
+        <h3>Actividad</h3>
+        <ol id="registro" class="registro"></ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ EMPRESAS Y OFERTAS ============ -->
+  <section id="vista-empresas" class="vista" hidden>
+    <div class="cabecera-vista">
+      <h2 class="titulo-vista">Empresas y ofertas</h2>
+      <button class="btn" id="btn-exportar" type="button">⤓ Exportar CSV</button>
+    </div>
+
+    <!-- Progreso en directo de la búsqueda y el rastreo -->
+    <div class="tarjeta tarjeta-rastreo" id="tarjeta-rastreo" hidden>
+      <div class="fila-entre">
+        <div><h3 id="rastreo-titulo" style="margin:0"></h3><p class="secundario pequeno" id="rastreo-sub" style="margin:2px 0 0"></p></div>
+        <div class="fila" style="margin:0">
+          <button class="btn" id="btn-seguir-rastreo" hidden></button>
+          <button class="btn" id="btn-detener-2" hidden>■ Detener</button>
+        </div>
+      </div>
+      <div class="pista" id="rastreo-pista"><div class="pista-relleno" id="rastreo-barra"></div></div>
+      <div class="contadores" id="rastreo-contadores"></div>
+      <div id="rastreo-ahora" class="rastreo-ahora"></div>
+      <div id="rastreo-ultimos" class="rastreo-ultimos"></div>
+    </div>
+
+    <div class="tarjeta">
+      <div class="filtros">
+        <input id="filtro-texto" type="search" placeholder="Buscar por nombre, puesto, sector o email…">
+        <select id="filtro-estado">
+          <option value="">Todos los estados</option>
+          <option value="elegibles">Se les puede escribir y aún no</option>
+          <option value="seleccionadas">☑ Seleccionadas para enviar</option>
+          <option value="new">Sin preparar</option>
+          <option value="prepared">Preparadas (sin enviar)</option>
+          <option value="enviadas">Enviadas</option>
+          <option value="respondidas">Respondidas</option>
+          <option value="interview">Entrevista</option>
+          <option value="discarded">Descartadas</option>
+          <option value="error">Error</option>
+          <option disabled>──────────</option>
+          <option value="menciones">★ Su web menciona lo que buscas</option>
+          <option value="senales">Su web habla de empleo del sector</option>
+          <option value="con_empleo">Con página de empleo</option>
+          <option value="avisos">⚠ Con avisos</option>
+          <option value="sin_avisos">Sin avisos</option>
+          <option value="sin_rastrear">Web aún sin rastrear</option>
+          <option value="bloqueada">Web que bloquea programas (mirar a mano)</option>
+        </select>
+        <select id="filtro-tipo">
+          <option value="">Ofertas y empresas</option>
+          <option value="job">Solo ofertas</option>
+          <option value="company">Solo empresas</option>
+          <option value="agency">Solo agencias</option>
+        </select>
+        <select id="filtro-via">
+          <option value="">Cualquier vía</option>
+          <option value="email">Por correo</option>
+          <option value="ats_extension">Formulario (extensión)</option>
+          <option value="portal_api">InfoJobs</option>
+          <option value="portal_copilot">Portal (extensión)</option>
+          <option value="manual">A mano</option>
+        </select>
+        <select id="filtro-pais"><option value="">Todos los países</option></select>
+        <select id="filtro-mencion" title="Qué dice su web"><option value="">Menciona: cualquier cosa</option></select>
+      </div>
+      <div class="tabla-envoltorio">
+        <table class="tabla">
+          <thead><tr><th class="col-check"><input type="checkbox" id="check-todas" title="Seleccionar todas las visibles a las que se puede escribir"></th><th>Nombre</th><th>País</th><th>Tipo</th><th>Vía</th><th>Contacto</th><th>Estado</th><th></th></tr></thead>
+          <tbody id="tabla-empresas"></tbody>
+        </table>
+      </div>
+      <p id="empresas-vacio" class="vacio" hidden>Todavía no hay nada. Rellena <b>¿Qué buscas?</b> en el panel y pulsa <b>Iniciar búsqueda</b>.</p>
+      <p id="empresas-mas" class="vacio pequeno" hidden></p>
+    </div>
+
+    <!-- Barra de envío: siempre visible abajo -->
+    <div class="barra-envio" id="barra-envio">
+      <div>
+        <b id="sel-num">0 seleccionadas</b>
+        <div class="pequeno secundario" id="sel-ayuda">Marca las casillas de las empresas y ofertas a las que quieres escribir.</div>
+      </div>
+      <div class="fila" style="margin:0">
+        <button class="btn" id="btn-sel-recomendadas" title="Las que su web menciona lo que buscas, tienen un buzón de empleo o son ofertas que se pueden preparar, y sin avisos">Seleccionar recomendadas</button>
+        <button class="btn" id="btn-sel-ninguna">Quitar selección</button>
+        <button class="btn" id="btn-descartar-sel" disabled>Descartar</button>
+        <button class="btn primario" id="btn-enviar" disabled>Enviar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RESPUESTAS ============ -->
+  <section id="vista-respuestas" class="vista" hidden>
+    <div class="cabecera-vista">
+      <h2 class="titulo-vista">Respuestas</h2>
+      <div class="revision"><span class="revision-texto"></span><button type="button" class="btn" data-revisar>↻ Revisar correo ahora</button></div>
+    </div>
+    <div class="bandeja">
+      <div class="tarjeta bandeja-lista">
+        <div class="chips" id="filtro-categorias"></div>
+        <ul id="lista-respuestas"></ul>
+        <p id="respuestas-vacio" class="vacio" hidden>Aún no hay respuestas.</p>
+      </div>
+      <div class="tarjeta bandeja-detalle" id="detalle-respuesta">
+        <p class="vacio">Selecciona una respuesta para leerla.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CONFIGURACIÓN ============ -->
+  <section id="vista-config" class="vista" hidden>
+    <div class="cabecera-vista"><h2 class="titulo-vista">Configuración</h2></div>
+    <form id="form-config" autocomplete="off">
+
+      <div class="tarjeta tarjeta-cuenta">
+        <div class="cuenta-icono" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div>
+        <div class="cuenta-texto">
+          <h3>Cuenta de correo</h3>
+          <p id="cuenta-estado" class="secundario"></p>
+        </div>
+        <div class="fila" style="margin:0">
+          <button type="button" class="btn" id="btn-desconectar" hidden>Desconectar</button>
+          <button type="button" class="btn primario" id="btn-conectar">Conectar Gmail</button>
+        </div>
+      </div>
+
+      <div class="tarjeta">
+        <h3>Modo de funcionamiento</h3>
+        <div class="modos">
+          <label class="modo"><input type="radio" name="mode" value="simulation">
+            <span><b>Simulación</b><br><span class="secundario pequeno">No sale ningún correo. Las respuestas se inventan para que pruebes el panel.</span></span></label>
+          <label class="modo"><input type="radio" name="mode" value="test">
+            <span><b>Prueba real</b><br><span class="secundario pequeno">Envía de verdad por tu Gmail, pero <b>todos los correos llegan a ti</b>. Contéstalos como si fueras la empresa.</span></span></label>
+          <label class="modo peligro"><input type="radio" name="mode" value="live">
+            <span><b>Real</b><br><span class="secundario pequeno">Envía los correos a las empresas, con límite diario y pausa entre envíos.</span></span></label>
+        </div>
+        <p class="secundario pequeno" style="margin-bottom:0">Cada modo guarda sus candidaturas por separado: lo que hagas en simulación no afecta a los envíos reales.</p>
+      </div>
+
+      <!-- Editor del mensaje -->
+      <div class="tarjeta editor">
+        <div class="fila-entre">
+          <div><h3>Tu mensaje</h3><p class="secundario pequeno" style="margin:0">Lo que recibirá cada empresa. Las <span class="var-ejemplo">variables</span> se rellenan solas con sus datos y los tuyos.</p></div>
+          <div class="fila" style="margin:0">
+            <div class="segmentado" role="tablist" id="selector-idioma"></div>
+            <div class="segmentado" role="tablist" id="selector-plantilla">
+              <button type="button" class="activo" data-plantilla="company">Para empresas</button>
+              <button type="button" data-plantilla="agency">Para agencias</button>
+              <button type="button" data-plantilla="job">Para ofertas</button>
+            </div>
+          </div>
+        </div>
+        <p class="ayuda" id="ayuda-plantilla"></p>
+        <div class="editor-cols">
+          <div class="editor-campos">
+            <label>Asunto<input id="tpl-asunto" data-editable aria-label="Asunto"></label>
+            <div class="etiqueta-cuerpo"><span id="etq-mensaje">Mensaje</span>
+              <textarea id="tpl-cuerpo" rows="16" data-editable aria-labelledby="etq-mensaje"></textarea>
+            </div>
+            <div class="insertar" id="insertar-vars"><span class="pequeno secundario">Insertar:</span></div>
+            <div class="fila">
+              <span class="pequeno secundario" id="tpl-origen"></span>
+              <button type="button" class="btn enlace" id="btn-restaurar">Restaurar el mensaje original</button>
+            </div>
+          </div>
+          <div class="previa-correo" aria-live="polite">
+            <p class="sobretitulo">Así lo verá <span id="previa-quien">la empresa</span></p>
+            <div class="correo-mock">
+              <div class="correo-cab">
+                <div class="avatar grande" id="previa-avatar">?</div>
+                <div>
+                  <div><b id="previa-de"></b></div>
+                  <div class="pequeno secundario">para <span id="previa-para"></span></div>
+                </div>
+              </div>
+              <div class="correo-asunto" id="previa-asunto"></div>
+              <div class="correo-cuerpo" id="previa-cuerpo"></div>
+              <div class="lista-adjuntos" id="previa-adjuntos"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Archivos adjuntos por idioma -->
+      <div class="tarjeta">
+        <h3>Archivos adjuntos</h3>
+        <p class="secundario pequeno" style="margin-top:-6px" id="ayuda-adjuntos">Tu CV y lo que quieras enviar (certificados, cartas…). A cada empresa se le envían los del idioma de su correo. Se guardan solo en tu ordenador.</p>
+        <div class="rejilla-adjuntos" id="cajas-adjuntos"></div>
+        <input type="file" id="input-adjuntos" multiple accept=".pdf,.doc,.docx,.odt,.rtf,.txt,.jpg,.jpeg,.png" hidden>
+        <p class="ayuda">También puedes arrastrar los archivos y soltarlos sobre la columna. PDF, Word, imágenes o texto; máximo 10 MB por archivo y 50 MB en total.</p>
+      </div>
+
+      <div class="rejilla-2">
+        <div class="tarjeta">
+          <h3>Tu perfil</h3>
+          <div class="dos-cols iguales">
+            <label>Nombre<input name="first_name"></label>
+            <label>Apellidos<input name="last_name"></label>
+          </div>
+          <label>Email de contacto<input name="email" type="email"><span class="ayuda">En modo prueba los correos te llegan aquí.</span></label>
+          <label>Teléfono<input name="phone"></label>
+          <div class="dos-cols">
+            <label>Ciudad<input name="city"></label>
+            <label>País<select name="country"></select></label>
+          </div>
+          <label>LinkedIn<input name="links.linkedin" placeholder="https://www.linkedin.com/in/…"></label>
+          <label>Web / portfolio<input name="links.website" placeholder="https://"></label>
+          <div id="campos-pack"></div>
+        </div>
+
+        <div class="tarjeta">
+          <h3>Límites de envío</h3>
+          <label>Límite diario (prueba y real)<input name="daily_limit" type="number" min="1" max="500"></label>
+          <label>Pausa entre correos (segundos)<input name="pause_seconds" type="number" min="5" max="3600"><span class="ayuda">Enviar despacio evita que Gmail te marque como spam.</span></label>
+          <label>Recordarme hacer seguimiento a los (días)<input name="followup_days" type="number" min="1" max="90"><span class="ayuda">Si una empresa no contesta en ese plazo, te lo recuerdo (nunca se envía nada solo).</span></label>
+          <hr>
+          <details class="avanzado" id="banco-respuestas">
+            <summary>Respuestas para formularios (las usa la extensión al rellenar)</summary>
+            <p class="ayuda" style="margin-top:-4px">Lo que contestas siempre igual: disponibilidad, permiso de trabajo, idiomas… Se rellenan solas en los formularios y siempre puedes revisarlas antes de enviar.</p>
+            <div id="campos-banco"></div>
+          </details>
+        </div>
+      </div>
+
+      <div class="guardar">
+        <span id="estado-guardado" class="pequeno"></span>
+        <button type="submit" class="btn primario">Guardar configuración</button>
+      </div>
+    </form>
+  </section>
+</main>
+
+<!-- Conectar Gmail -->
+<dialog id="dialogo-cuenta" class="dialogo-cuenta">
+  <form id="form-cuenta" method="dialog" autocomplete="off">
+    <div class="cuenta-cabecera">
+      <div class="cuenta-icono grande" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div>
+      <div>
+        <h2>Conecta tu Gmail</h2>
+        <p class="secundario">Desde esta cuenta se enviarán tus candidaturas y aquí se leerán las respuestas de las empresas.</p>
+      </div>
+    </div>
+
+    <div id="cuenta-con-clave">
+      <ol class="pasos">
+        <li><span>Activa la <a href="https://myaccount.google.com/signinoptions/twosv" target="_blank" rel="noopener">verificación en dos pasos</a> de tu cuenta de Google (si no la tienes ya).</span></li>
+        <li><span>Crea una <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">contraseña de aplicación</a>. Ponle de nombre «knok».</span></li>
+        <li><span>Google te mostrará 16 letras. Pégalas aquí abajo.</span></li>
+      </ol>
+
+      <label>Tu dirección de Gmail<input name="usuario" type="email" placeholder="nombre@gmail.com"></label>
+      <label>Contraseña de aplicación
+        <span class="campo-clave">
+          <input name="contrasena" type="password" placeholder="xxxx xxxx xxxx xxxx">
+          <button type="button" class="btn enlace" id="ver-clave">Mostrar</button>
+        </span>
+      </label>
+
+      <div id="cuenta-resultado" class="resultado" hidden></div>
+
+      <p class="nota-privada"><svg viewBox="0 0 24 24" class="ico"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        <span>Se guarda cifrada solo en tu ordenador y nunca se sube a ningún sitio. Puedes revocarla cuando quieras desde tu cuenta de Google.</span></p>
+    </div>
+
+    <div id="cuenta-oauth" hidden>
+      <p class="secundario pequeno" id="cuenta-oauth-texto"></p>
+      <button type="button" class="btn" id="btn-oauth">Conectar con Google (solo permiso para enviar)</button>
+    </div>
+    <div id="cuenta-sin-opciones" class="caja-aviso" hidden></div>
+
+    <div class="fila-entre" style="margin-top:14px">
+      <button type="button" class="btn" id="cuenta-luego">Ahora no</button>
+      <button type="submit" class="btn primario" id="cuenta-enviar">Conectar y probar</button>
+    </div>
+    <p class="pequeno secundario" id="cuenta-nota-sim" style="margin:10px 0 0" hidden>En modo simulación no hace falta: puedes conectarla más tarde desde el botón de arriba a la derecha.</p>
+  </form>
+</dialog>
+
+<!-- Ficha de una empresa / oferta, resultado de un envío… -->
+<dialog id="dialogo">
+  <div class="dialogo-cabecera"><h2 id="dialogo-titulo"></h2><button class="btn enlace" id="dialogo-cerrar" aria-label="Cerrar">✕</button></div>
+  <div id="dialogo-cuerpo"></div>
+</dialog>
+
+<div id="tooltip" class="tooltip" hidden></div>
+
+<script src="/ui/app.js"></script>
+</body>
+</html>

@@ -4,6 +4,7 @@ Tu web (Next.js) llama a /auth/register o /auth/login y guarda el token (cookie 
 servidor de Next o almacenamiento del navegador). La extensión usa un token aparte, creado con
 POST /auth/tokens, que el usuario puede revocar sin cerrar su sesión web.
 """
+import ipaddress
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Request
@@ -133,7 +134,18 @@ def revoke_token(token_id: int, user: User = Depends(current_user), db: Session 
 
 
 LOCAL_EMAIL = "local@knok.local"
-LOOPBACK = {"127.0.0.1", "::1", "localhost", "testclient"}
+LOOPBACK = {"localhost", "testclient"}
+
+
+def _from_this_machine(host: str) -> bool:
+    """Este ordenador (o la red interna de Docker, que publica el puerto solo en 127.0.0.1)."""
+    if host in LOOPBACK:
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return ip.is_loopback or ip.is_private
 
 
 @router.get("/local", response_model=TokenOut, summary="Sesión del panel local (un usuario en tu PC, sin login)")
@@ -142,7 +154,7 @@ def local_session(request: Request, db: Session = Depends(get_db)):
     s = get_settings()
     if not s.local_single_user:
         raise ApiError(404, "not_found", "No disponible")
-    if (request.client.host if request.client else "") not in LOOPBACK:
+    if not _from_this_machine(request.client.host if request.client else ""):
         raise ApiError(403, "forbidden", "La sesión local solo funciona desde este ordenador")
     user = db.scalar(select(User).where(User.email == LOCAL_EMAIL))
     if user is None:

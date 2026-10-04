@@ -48,7 +48,7 @@ def test_conectar_enviar_y_leer_respuestas(client, local):
 
     # Nuestro propio correo (llega a la bandeja en modo prueba) no cuenta como respuesta
     llamadas["buzon"].append(raw)
-    msg_id = next(l for l in raw.decode().splitlines() if l.lower().startswith("message-id:")).split(":", 1)[1].strip()
+    msg_id = next(x for x in raw.decode().splitlines() if x.lower().startswith("message-id:")).split(":", 1)[1].strip()
     respuesta = EmailMessage()
     respuesta["From"], respuesta["To"] = "Ana <ana@gmail.com>", "ana@gmail.com"
     respuesta["Subject"], respuesta["In-Reply-To"] = "Re: candidatura", msg_id
