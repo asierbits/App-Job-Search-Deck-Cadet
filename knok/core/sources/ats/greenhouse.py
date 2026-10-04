@@ -50,13 +50,14 @@ def parse_questions(data: dict) -> list[dict]:
     """Preguntas de la oferta → esquema de formulario común."""
     campos = []
     for q in (data.get("questions") or []) + (data.get("location_questions") or []):
-        for f in q.get("fields") or []:
+        for i, f in enumerate(q.get("fields") or []):
             tipo = _TIPOS.get(f.get("type"), "text")
             if tipo == "hidden":
                 continue
+            # Una pregunta con varios campos (CV como archivo O pegado): solo el primero es obligatorio
             campos.append({
                 "id": f.get("name"), "label": q.get("label") or f.get("name"), "type": tipo,
-                "required": bool(q.get("required")), "description": html_to_text(q.get("description") or ""),
+                "required": bool(q.get("required")) and i == 0, "description": html_to_text(q.get("description") or ""),
                 "options": [{"label": v.get("label"), "value": str(v.get("value"))} for v in f.get("values") or []],
             })
     return campos

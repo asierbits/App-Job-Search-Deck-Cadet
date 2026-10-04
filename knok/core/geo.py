@@ -93,3 +93,18 @@ def city_key(ciudad: str) -> str:
     if REMOTE_RE.search(n):
         return "remote"
     return CITY_ALIASES.get(n, n)
+
+
+def countries_in_text(texto: str) -> list[str]:
+    """Países nombrados en un texto ('authorized to work in the United States?' → ['us'])."""
+    n = " " + norm(texto) + " "
+    hallados = []
+    for nombre in sorted(_NAME_TO_ISO, key=len, reverse=True):
+        if len(nombre) <= 3 and nombre not in ("uk", "usa", "uae"):
+            continue   # 'us', 'es'… son palabras normales: solo cuentan los nombres
+        if re.search(r"(?<![a-z])" + re.escape(nombre) + r"(?![a-z])", n):
+            iso = _NAME_TO_ISO[nombre]
+            if iso not in hallados:
+                hallados.append(iso)
+            n = n.replace(nombre, " ")
+    return hallados

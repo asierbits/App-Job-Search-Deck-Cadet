@@ -1,0 +1,225 @@
+# Diccionario global: cómo reconocer cada clave canónica en la etiqueta de un formulario.
+# Se compara con la etiqueta normalizada (minúsculas, sin tildes). Gana el patrón más largo/específico.
+# Los packs añaden los suyos en questions.yaml; el admin puede aprobar más desde las preguntas nuevas.
+first_name:
+  en: [first name, given name, forename, firstname]
+  es: [nombre de pila, primer nombre]
+  fr: [prenom]
+  de: [vorname]
+  it: [nome di battesimo]
+  pt: [primeiro nome]
+last_name:
+  en: [last name, surname, family name, lastname]
+  es: [apellidos, apellido, primer apellido]
+  fr: [nom de famille]
+  de: [nachname, familienname]
+  it: [cognome]
+  pt: [sobrenome, apelido]
+full_name:
+  en: [full name, your name, legal name, name]
+  es: [nombre completo, nombre y apellidos, nombre]
+  fr: [nom complet, nom et prenom, nom]
+  de: [vollstandiger name, name]
+  it: [nome completo, nome e cognome]
+  pt: [nome completo]
+email:
+  en: [email, e-mail, email address, mail]
+  es: [correo electronico, correo, email]
+  fr: [courriel, adresse e-mail, adresse email]
+  de: [e-mail-adresse, e-mail adresse]
+phone:
+  en: [phone, phone number, telephone, mobile, mobile number, cell]
+  es: [telefono, movil, numero de telefono]
+  fr: [telephone, portable]
+  de: [telefon, telefonnummer, handy, mobilnummer]
+  it: [telefono, cellulare]
+  pt: [telefone, telemovel, celular]
+city:
+  en: [city, town]
+  es: [ciudad, localidad, municipio, poblacion]
+  fr: [ville]
+  de: [stadt, wohnort, ort]
+  it: [citta]
+  pt: [cidade]
+country:
+  en: [country, country of residence]
+  es: [pais, pais de residencia]
+  fr: [pays]
+  de: [land, wohnsitzland]
+  it: [paese, nazione]
+  pt: [pais]
+location:
+  en: [location, current location, where are you based, address]
+  es: [ubicacion, donde resides, direccion, lugar de residencia]
+  fr: [localisation, adresse, lieu de residence]
+  de: [standort, adresse, wohnsitz]
+linkedin:
+  en: [linkedin, linkedin profile, linkedin url]
+  es: [perfil de linkedin]
+github:
+  en: [github, github profile, gitlab]
+website:
+  en: [website, portfolio, personal website, portfolio url, other website, blog]
+  es: [sitio web, pagina web, portafolio, web personal]
+  fr: [site web, portfolio]
+  de: [webseite, portfolio]
+resume:
+  en: [resume, cv, resume/cv, curriculum vitae, upload your resume, attach resume]
+  es: [curriculum, cv, curriculum vitae, adjunta tu cv]
+  fr: [cv, curriculum vitae]
+  de: [lebenslauf]
+  it: [curriculum]
+  pt: [curriculo]
+cover_letter:
+  en: [cover letter, motivation letter, motivational letter, letter of motivation, message to the hiring manager,
+       why do you want to work, why are you interested, why this role, tell us about yourself, additional information]
+  es: [carta de presentacion, carta de motivacion, por que quieres trabajar, por que te interesa, cuentanos sobre ti,
+       mensaje para el responsable, informacion adicional]
+  fr: [lettre de motivation, pourquoi souhaitez-vous]
+  de: [anschreiben, motivationsschreiben, warum mochten sie]
+  it: [lettera di presentazione, lettera motivazionale]
+  pt: [carta de apresentacao, carta de motivacao]
+years_experience:
+  en: [years of experience, years experience, how many years, years of professional experience, experience in years]
+  es: [anos de experiencia, cuantos anos, experiencia en anos, anos de experiencia profesional]
+  fr: [annees d'experience, annees d experience, combien d'annees]
+  de: [jahre berufserfahrung, jahre erfahrung, wie viele jahre]
+  it: [anni di esperienza]
+  pt: [anos de experiencia]
+salary_expectation:
+  en: [salary expectation, salary expectations, expected salary, desired salary, compensation expectations,
+       salary requirements, expected compensation, desired compensation]
+  es: [expectativa salarial, expectativas salariales, salario deseado, pretension salarial, pretensiones salariales,
+       salario esperado, banda salarial deseada]
+  fr: [pretentions salariales, salaire souhaite, attentes salariales]
+  de: [gehaltsvorstellung, gehaltswunsch, gehaltsvorstellungen]
+  it: [ral desiderata, aspettative salariali, retribuzione desiderata]
+  pt: [pretensao salarial, expectativa salarial]
+current_salary:
+  en: [current salary, current compensation]
+  es: [salario actual, sueldo actual]
+  de: [aktuelles gehalt]
+notice_period:
+  en: [notice period, how much notice]
+  es: [periodo de preaviso, preaviso, plazo de incorporacion]
+  fr: [preavis, delai de preavis]
+  de: [kundigungsfrist]
+  it: [preavviso]
+  pt: [aviso previo]
+start_date:
+  en: [start date, earliest start date, when can you start, availability, available to start, date available]
+  es: [fecha de incorporacion, cuando podrias incorporarte, disponibilidad, fecha de inicio, incorporacion]
+  fr: [date de disponibilite, disponibilite, date de debut]
+  de: [fruhester eintrittstermin, eintrittsdatum, verfugbarkeit, startdatum]
+  it: [disponibilita, data di inizio]
+  pt: [disponibilidade, data de inicio]
+work_authorization:
+  en: [authorized to work, authorised to work, legally authorized, legally eligible to work, right to work,
+       work permit, eligible to work, work authorization, permission to work]
+  es: [permiso de trabajo, autorizacion para trabajar, autorizado para trabajar, autorizada para trabajar,
+       permiso para trabajar]
+  fr: [autorisation de travail, autorise a travailler, permis de travail]
+  de: [arbeitserlaubnis, arbeitsgenehmigung]
+  it: [permesso di lavoro]
+  pt: [autorizacao de trabalho, autorizado a trabalhar]
+needs_sponsorship:
+  en: [sponsorship, visa sponsorship, require sponsorship, need sponsorship, require a visa]
+  es: [patrocinio, patrocinio de visado, necesitas visado]
+  fr: [parrainage, sponsor de visa]
+  de: [visum-sponsoring, visumsponsoring, visum]
+relocation:
+  en: [relocate, relocation, willing to move]
+  es: [reubicacion, trasladarte, cambiar de residencia, disponibilidad para trasladarse, mudarte]
+  fr: [demenager, relocalisation, mobilite geographique]
+  de: [umzug, umzugsbereitschaft]
+remote_preference:
+  en: [remote, work arrangement, hybrid, onsite, on-site]
+  es: [teletrabajo, modalidad de trabajo, remoto, presencial]
+  fr: [teletravail]
+  de: [homeoffice, remote arbeit]
+willing_to_travel:
+  en: [willing to travel, travel requirements, able to travel]
+  es: [disponibilidad para viajar, viajar]
+  fr: [deplacements]
+  de: [reisebereitschaft]
+drivers_license:
+  en: [driver's license, drivers license, driving licence, driving license]
+  es: [carne de conducir, permiso de conducir, carnet de conducir]
+  fr: [permis de conduire]
+  de: [fuhrerschein]
+current_company:
+  en: [current company, current employer, most recent employer, company name]
+  es: [empresa actual, empleador actual]
+  fr: [entreprise actuelle, employeur actuel]
+  de: [aktueller arbeitgeber]
+current_title:
+  en: [current title, current job title, current role, current position]
+  es: [puesto actual, cargo actual]
+  fr: [poste actuel]
+  de: [aktuelle position]
+highest_education:
+  en: [highest level of education, education level, highest degree]
+  es: [nivel de estudios, nivel educativo, maximo nivel de estudios, titulacion mas alta]
+  fr: [niveau d'etudes, niveau d etudes, diplome le plus eleve]
+  de: [hochster abschluss, bildungsabschluss]
+degree:
+  en: [degree, field of study, major, discipline]
+  es: [titulacion, titulo, carrera, estudios]
+  fr: [diplome, domaine d'etudes]
+  de: [studiengang, abschluss]
+university:
+  en: [university, school, college, institution]
+  es: [universidad, centro de estudios, escuela]
+  fr: [universite, ecole]
+  de: [universitat, hochschule]
+graduation_year:
+  en: [graduation year, year of graduation, graduation date]
+  es: [ano de graduacion, ano de finalizacion]
+  fr: [annee d'obtention, annee de diplome]
+  de: [abschlussjahr]
+languages_summary:
+  en: [languages, language skills, which languages do you speak]
+  es: [idiomas, que idiomas hablas, nivel de idiomas]
+  fr: [langues, competences linguistiques]
+  de: [sprachen, sprachkenntnisse]
+nationality:
+  en: [nationality, citizenship]
+  es: [nacionalidad]
+  fr: [nationalite]
+  de: [staatsangehorigkeit, nationalitat]
+how_did_you_hear:
+  en: [how did you hear, how did you find, where did you hear, source, referral source, how did you learn about]
+  es: [como nos conociste, como te enteraste, donde viste esta oferta, como conociste]
+  fr: [comment avez-vous connu, comment avez-vous entendu]
+  de: [wie sind sie auf uns aufmerksam geworden, wie haben sie von]
+pronouns:
+  en: [pronouns]
+  es: [pronombres]
+references:
+  en: [references, referees]
+  es: [referencias]
+date_of_birth:
+  en: [date of birth, birth date, birthday, dob]
+  es: [fecha de nacimiento]
+  fr: [date de naissance]
+  de: [geburtsdatum]
+eeo_gender:
+  en: [gender, sex]
+  es: [genero, sexo]
+  fr: [genre, sexe]
+  de: [geschlecht]
+eeo_ethnicity:
+  en: [race, ethnicity, ethnic background, hispanic or latino]
+  es: [etnia, origen etnico]
+eeo_veteran:
+  en: [veteran, protected veteran, military service]
+eeo_disability:
+  en: [disability, disabled]
+  es: [discapacidad]
+  fr: [handicap]
+  de: [behinderung, schwerbehinderung]
+consent:
+  en: [i agree, i consent, privacy policy, terms and conditions, data processing, i accept, gdpr, acknowledge]
+  es: [acepto, consiento, politica de privacidad, proteccion de datos, terminos y condiciones, he leido]
+  fr: [j'accepte, politique de confidentialite, protection des donnees]
+  de: [ich stimme zu, datenschutz, einwilligung, ich akzeptiere]

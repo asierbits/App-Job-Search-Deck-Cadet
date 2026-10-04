@@ -1,4 +1,5 @@
 """Todos los routers de la API, en el orden en que aparecen en la documentación."""
-from knok.api.routers import auth, connections, me, packs, search
+from knok.api.routers import admin, auth, connections, me, packs, review, search
 
-ALL: list = [auth.router, me.router, connections.router, packs.router, search.router, search.catalog]
+ALL: list = [auth.router, me.router, connections.router, packs.router, search.router, review.router,
+             search.catalog, admin.router]
