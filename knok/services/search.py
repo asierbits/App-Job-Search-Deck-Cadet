@@ -27,9 +27,16 @@ CANDIDATE_CAP = 5000
 
 
 def default_sources() -> list[str]:
-    if get_settings().offline_sources:
+    """Sin claves solo se usan fuentes públicas; los portales con API (Adzuna, InfoJobs) solo si se configuran."""
+    s = get_settings()
+    if s.offline_sources:
         return ["sample"]
-    return ["ats", "adzuna", "infojobs", "companies"]
+    fuentes = ["ats", "companies"]
+    if s.adzuna_app_id and s.adzuna_app_key:
+        fuentes.append("adzuna")
+    if s.infojobs_client_id and s.infojobs_client_secret:
+        fuentes.append("infojobs")
+    return fuentes
 
 
 SOURCE_NAMES = {"ats": "tableros de empresas (Greenhouse, Lever, Ashby)", "adzuna": "Adzuna", "infojobs": "InfoJobs",

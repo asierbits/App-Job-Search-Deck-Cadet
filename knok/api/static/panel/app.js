@@ -508,7 +508,10 @@ $("#lista-busquedas").addEventListener("click", (ev) => {
   const b = ev.target.closest("[data-repetir]");
   if (!b) return;
   const busq = (st.busquedas || []).find((x) => x.id === Number(b.dataset.repetir));
-  if (busq) lanzarBusqueda({ ...busq.params });
+  if (busq) {
+    const fuentes = (busq.params.sources || []).filter((f) => ["companies", "ats", "sample"].includes(f));
+    lanzarBusqueda({ ...busq.params, sources: fuentes.length ? fuentes : ["companies", "ats"] });
+  }
 });
 
 function pintarConsejo(e) {
@@ -517,8 +520,6 @@ function pintarConsejo(e) {
   let t = "";
   if (e.pack.company_sources.osm && !ciudades && !e.pack.company_sources.directories && !e.pack.company_sources.wikidata)
     t = "<b>Añade al menos una ciudad.</b> Las empresas de tu nicho se buscan en el mapa alrededor de tus ciudades.";
-  else if (!e.sources_ready.adzuna && !e.sources_ready.infojobs)
-    t = "<b>¿Quieres más ofertas publicadas?</b> Con las claves gratuitas de Adzuna (o InfoJobs) en el archivo <code>.env</code> también buscaré en esos portales.";
   else if (e.sending_problems.some((p) => p.code === "missing_cv"))
     t = "<b>Sube tu CV</b> en Configuración → Archivos adjuntos para poder enviar.";
   else if (!e.connections.google.connected)
@@ -607,8 +608,6 @@ const claveBusqueda = () => "knok-busqueda-" + st.estado.pack.slug;
 function busquedaPorDefecto() {
   const e = st.estado;
   const fuentes = ["companies", "ats"];
-  if (e.sources_ready.adzuna) fuentes.push("adzuna");
-  if (e.sources_ready.infojobs) fuentes.push("infojobs");
   if (e.offline) fuentes.splice(0, fuentes.length, "sample");
   return { keywords: "", paises: e.pack.default_countries.slice(), cities: "", radius_km: 10, max_webs: 200, sources: fuentes, include_companies: true };
 }
@@ -624,6 +623,9 @@ function prepararBusqueda() {
     ? "Necesaria para buscar empresas de tu nicho: se buscan en OpenStreetMap alrededor de cada ciudad (y suman puntos las de allí)."
     : "Además de las fuentes del nicho, busca empresas en OpenStreetMap alrededor de cada ciudad y da más puntos a las de allí.";
   st.busqueda = { ...busquedaPorDefecto(), ...(leerLocal(claveBusqueda()) || {}) };
+  // Solo fuentes sin claves ni cuentas (las búsquedas guardadas antes podían llevar portales de empleo)
+  st.busqueda.sources = st.busqueda.sources.filter((f) => ["companies", "ats", "sample"].includes(f));
+  if (!st.busqueda.sources.length) st.busqueda.sources = busquedaPorDefecto().sources;
   const f = $("#form-busqueda");
   f.keywords.value = st.busqueda.keywords;
   f.cities.value = st.busqueda.cities;
@@ -631,8 +633,6 @@ function prepararBusqueda() {
   f.max_webs.value = st.busqueda.max_webs;
   f.include_companies.checked = !!st.busqueda.include_companies;
   $$('[name="sources"]', f).forEach((c) => (c.checked = st.busqueda.sources.includes(c.value)));
-  $('[data-falta="adzuna"]').textContent = e.sources_ready.adzuna ? "" : "(necesita claves gratis de Adzuna en .env)";
-  $('[data-falta="infojobs"]').textContent = e.sources_ready.infojobs ? "" : "(necesita claves de InfoJobs en .env)";
   $("#pack-descripcion").textContent = e.pack.description || "";
   pintarPaises();
 }

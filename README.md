@@ -55,8 +55,9 @@ reconoce las ofertas del nicho. Para los nichos propios hace falta al menos una 
 Empieza en **Simulación**: busca de verdad pero no envía nada. **Gmail**: en el panel local se conecta como
 en la primera versión, con una **contraseña de aplicación** (verificación en dos pasos → contraseña de
 aplicación → pegar las 16 letras); así knok envía por SMTP y lee las respuestas por IMAP (solo las de las
-empresas a las que escribiste, sin marcarlas como leídas). Queda cifrada en tu ordenador. Para Adzuna e
-InfoJobs pon sus claves gratuitas en `.env`; sin ellas se busca en las demás fuentes.
+empresas a las que escribiste, sin marcarlas como leídas). Queda cifrada en tu ordenador. El panel solo usa fuentes
+públicas sin cuentas ni claves: OpenStreetMap, Wikidata, directorios, las webs de las empresas y sus páginas
+de empleo públicas (Greenhouse, Lever, Ashby).
 
 Usa una base de datos en un archivo (`knok.db`, SQLite) y el worker va dentro de la API: un solo proceso,
 ideal para tu ordenador. Para un servidor con varios usuarios, usa Docker con Postgres.
