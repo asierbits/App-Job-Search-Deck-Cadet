@@ -162,7 +162,8 @@ def send_email_task(db: Session, payload: dict) -> dict:
                   f"y reenvía la respuesta a tu dirección de seguimiento de knok, o márcala a mano.)\n\n{e.body}")
     nombre = " ".join(x for x in (profile.first_name, profile.last_name) if x)
     msg = build(sender_name=nombre, sender_email=e.sender, to=e.to_addr, subject=asunto, body=cuerpo,
-                message_id=e.message_id, attachments=_attachments(db, e.attachments, e.user_id))
+                message_id=e.message_id, attachments=_attachments(db, e.attachments, e.user_id),
+                in_reply_to=payload.get("in_reply_to", ""))
     raw = msg.as_bytes()
 
     if e.mode == "simulation":
